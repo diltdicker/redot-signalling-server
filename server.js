@@ -163,10 +163,12 @@ function handleMessage(rawData, peer) {
         peer.isHost = true;
         let lobby = new GameLobby(peer.gameName, isOpen, isMesh, maxPeers, autoSeal, custom);
         peer.lobby = lobby;
-        log.info(`(${peer.webId}) created lobby: (${peer.lobby.lobbyCode}) for game: (${peer.gameName}) maxPeers(${maxPeers})`);
+        log.info(`peer: ${peer.webId} created lobby: ${peer.lobby.lobbyCode} for game: ${peer.gameName} maxPeers=${maxPeers}`);
         peer.lobby.add_peer(peer);
         peer.socket.send(packMessage(PROTO.HOST, {lobbyCode: peer.lobby.lobbyCode, maxPeers: peer.lobby.maxPeers, autoSeal: peer.lobby.autoSeal}));
-        LOBBIES_LIST.push(peer.lobby);
+        if (isOpen) {
+            LOBBIES_LIST.push(peer.lobby);
+        }
         log.debug('lobbies: ', JSON.stringify(LOBBIES_LIST,(key, value) => key === 'peerList' ? value.map((p) => p.webId) : value));
         return;
     }
@@ -378,14 +380,18 @@ SERVER.on('connection', (socket) => {
     CUR_PEER_CNT++;
     let peer = new WebPeer(socket);
     log.info(`peer: ${peer.webId} connected to server (${CUR_PEER_CNT}/${MAX_CONNS})`)
-    socket.send(packMessage(PROTO.GAME))
+    try {
+        socket.send(packMessage(PROTO.GAME))
+    } catch(err) {
+        log.error('[on_connect] ', err);
+    }
 
     socket.on('message', (rawData) => {
         log.debug(`recieved message from (${peer.webId}): ${rawData}`)
         try{
             handleMessage(rawData, peer, socket);
         } catch(err) {
-            log.error(err)
+            log.error('[on_message] ', err)
             if (err instanceof WebError) {
                 peer.socket.send(packMessage(PROTO.ERR, {code: err.code, reason: err.reason}));
             }
@@ -397,48 +403,57 @@ SERVER.on('connection', (socket) => {
         CUR_PEER_CNT--;
         log.info(`peer: ${peer.webId} disconnected from server [${code}]:${reason}`)
 
-        // logic for removing from lobbies
-        if (peer.lobby != null && !peer.lobby.isSealed) {
-            if (peer.isHost) {
-                // peer disconnect from lobby if host
-                log.debug(`deleting lobby: (${peer.lobby.lobbyCode})`);
+        try {
+            // logic for removing from lobbies
+            if (peer.lobby != null && !peer.lobby.isSealed) {
+                if (peer.isHost) {
+                    // peer disconnect from lobby if host
+                    log.info(`deleting lobby: (${peer.lobby.lobbyCode})`);
+                    let lobby = peer.lobby;
+                    peer.lobby.rm_peer(peer);
+                    peer.lobby.peerList.forEach((p) => {
+                        p.socket.send(packMessage(PROTO.PEER_RM, {rtcId: peer.rtcId, lobbyAlive: false}));
+                        p.lobby = null;
+                    });
+                    // delete lobby
+                    LOBBIES_LIST = LOBBIES_LIST.filter((l) => l.lobbyCode !== lobby.lobbyCode);
+                    lobby = null;
+                    log.debug('lobbies: ', JSON.stringify(LOBBIES_LIST,(key, value) => key === 'peerList' ? value.map((p) => p.webId) : value));
+
+                } else {
+                    // peer disconnect from lobby if not host
+                    peer.lobby.rm_peer(peer);
+                    peer.lobby.peerList.forEach((p) => {
+                        p.socket.send(packMessage(PROTO.PEER_RM, {rtcId: peer.rtcId, lobbyAlive: true}));
+                    });
+                }
+            } else if (peer.lobby != null && peer.lobby.isSealed && peer.isHost) {
+                // host disconnecting to start game
+                log.info(`deleting lobby: (${peer.lobby.lobbyCode})`);
                 let lobby = peer.lobby;
-                peer.lobby.rm_peer(peer);
                 peer.lobby.peerList.forEach((p) => {
-                    p.socket.send(packMessage(PROTO.PEER_RM, {rtcId: peer.rtcId, lobbyAlive: false}));
+                    p.socket.send(packMessage(PROTO.START, {}));
                     p.lobby = null;
                 });
                 // delete lobby
                 LOBBIES_LIST = LOBBIES_LIST.filter((l) => l.lobbyCode !== lobby.lobbyCode);
                 lobby = null;
                 log.debug('lobbies: ', JSON.stringify(LOBBIES_LIST,(key, value) => key === 'peerList' ? value.map((p) => p.webId) : value));
-
-            } else {
-                // peer disconnect from lobby if not host
-                peer.lobby.rm_peer(peer);
-                peer.lobby.peerList.forEach((p) => {
-                    p.socket.send(packMessage(PROTO.PEER_RM, {rtcId: peer.rtcId, lobbyAlive: true}));
-                });
             }
-        } else if (peer.lobby != null && peer.lobby.isSealed && peer.isHost) {
-            // host disconnecting to start game
-            log.debug(`deleting lobby: (${peer.lobby.lobbyCode})`);
-            let lobby = peer.lobby;
-            peer.lobby.peerList.forEach((p) => {
-                p.socket.send(packMessage(PROTO.START, {}));
-                p.lobby = null;
-            });
-            // delete lobby
-            LOBBIES_LIST = LOBBIES_LIST.filter((l) => l.lobbyCode !== lobby.lobbyCode);
-            lobby = null;
-            log.debug('lobbies: ', JSON.stringify(LOBBIES_LIST,(key, value) => key === 'peerList' ? value.map((p) => p.webId) : value));
+        } catch(err) {
+            log.error('[on_close] ', err);
         }
+        
     });
 
     socket.on('error', (err) => {
         log.error(err)
-        if (err instanceof WebError) {
-            peer.send(packMessage(PROTO.ERR, {code: err.code, reason: err.reason}));
+        try {
+            if (err instanceof WebError) {
+                peer.send(packMessage(PROTO.ERR, {code: err.code, reason: err.reason}));
+            }
+        } catch(err) {
+            log.error('[on_error] ', err);
         }
     });
 });
