@@ -1,6 +1,6 @@
-FROM 18.20.5-alpine3.21
+FROM node:18.20.5-alpine3.21
 
-ENV NODE_ENV production
+ENV NODE_ENV=production
 
 WORKDIR /usr/src/app
 
@@ -13,3 +13,5 @@ COPY server.js ./
 EXPOSE 8080
 
 CMD [ "node", "server.js" ]
+
+#  docker buildx build -t diltdicker/redot-signalling-server:latest

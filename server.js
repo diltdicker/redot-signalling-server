@@ -16,7 +16,7 @@ const IS_PROD = process.env.NODE_ENV === 'production'
 log.setLevel( IS_PROD ? log.levels.WARN : log.levels.DEBUG)
 
 
-const PORT = 9090;
+const PORT = 8080;
 const SERVER = new WebSocketServer({ port: PORT});
 const PING_INTERVAL = 10000; // web socket ping for all connected clients every 10s
 const MAX_CONNS = 4096;
@@ -95,7 +95,7 @@ class WebPeer {
 }
 
 class GameLobby {
-    constructor (gameName, isOpen=false, isMesh=false, maxPeers=8, autoSeal=false, xtra=null) {
+    constructor (gameName, isOpen=false, isMesh=false, maxPeers=8, autoSeal=false, custom=null) {
         this.gameName = gameName;
         this.isOpen = isOpen;
         this.isSealed = false;
@@ -104,7 +104,7 @@ class GameLobby {
         this.isMesh = isMesh;
         this.maxPeers = maxPeers;
         this.autoSeal = autoSeal;
-        this.xtra = xtra;               // addtional field for creative usage
+        this.custom = custom;               // addtional field for creative usage
     }
 
     add_peer(peer) {
@@ -158,10 +158,10 @@ function handleMessage(rawData, peer) {
         const isMesh = data['isMesh'] || false;
         const autoSeal = data['autoSeal'] || false;
         const maxPeers = data['maxPeers'] || 8;
-        const xtra = data['xtra'] || null;
+        const custom = data['custom'] || null;
         peer.rtcId = 1;                             // default host id is 1
         peer.isHost = true;
-        let lobby = new GameLobby(peer.gameName, isOpen, isMesh, maxPeers, autoSeal, xtra);
+        let lobby = new GameLobby(peer.gameName, isOpen, isMesh, maxPeers, autoSeal, custom);
         peer.lobby = lobby;
         log.debug(`lobby created: (${peer.lobby.lobbyCode})`);
         peer.lobby.add_peer(peer);
@@ -231,7 +231,7 @@ function handleMessage(rawData, peer) {
                     peerCount: lobby.peerList.length,
                     isMesh: lobby.isMesh,
                     autoSeal: lobby.autoSeal,
-                    xtra: lobby.xtra,
+                    custom: lobby.custom,
                 }
             });
             peer.socket.send(packMessage(PROTO.VIEW, {lobbyList: lobbyList}));
@@ -248,7 +248,7 @@ function handleMessage(rawData, peer) {
                     peerCount: lobby.peerList.length,
                     isMesh: lobby.isMesh,
                     autoSeal: lobby.autoSeal,
-                    xtra: lobby.xtra,
+                    custom: lobby.custom,
                 }
             });
             peer.socket.send(packMessage(PROTO.VIEW, {lobbyList: lobbyList}));
