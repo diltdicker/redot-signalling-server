@@ -1,0 +1,25 @@
+{
+  "type": "module",
+  "name": "redot-signalling-server",
+  "version": "0.1.0",
+  "description": "signalling server implementation for redot multiplayer WebRTC",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/diltdicker/redot-signalling-server.git"
+  },
+  "author": "diltdicker",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/diltdicker/redot-signalling-server/issues"
+  },
+  "homepage": "https://github.com/diltdicker/redot-signalling-server#readme",
+  "dependencies": {
+    "bb26": "^4.0.0",
+    "loglevel": "^1.9.2",
+    "ws": "^8.18.0"
+  }
+}
