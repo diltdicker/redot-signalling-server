@@ -13,7 +13,7 @@ log.methodFactory = function (methodName, logLevel, loggerName) {
 };
 log.rebuild()
 const IS_PROD = process.env.NODE_ENV === 'production'
-log.setLevel( IS_PROD ? log.levels.WARN : log.levels.DEBUG)
+log.setLevel( IS_PROD ? log.levels.INFO : log.levels.DEBUG)
 
 
 const PORT = process.env.PORT || 8080;
@@ -163,7 +163,7 @@ function handleMessage(rawData, peer) {
         peer.isHost = true;
         let lobby = new GameLobby(peer.gameName, isOpen, isMesh, maxPeers, autoSeal, custom);
         peer.lobby = lobby;
-        log.debug(`lobby created: (${peer.lobby.lobbyCode})`);
+        log.info(`(${peer.webId}) created lobby: (${peer.lobby.lobbyCode}) for game: (${peer.gameName}) maxPeers(${maxPeers})`);
         peer.lobby.add_peer(peer);
         peer.socket.send(packMessage(PROTO.HOST, {lobbyCode: peer.lobby.lobbyCode, maxPeers: peer.lobby.maxPeers, autoSeal: peer.lobby.autoSeal}));
         LOBBIES_LIST.push(peer.lobby);
@@ -366,7 +366,7 @@ const unpackMessage = (rawData) => {
 }
 
 // RUN WEBSOCKET SERVER
-log.debug(`starting websocket server on port: ${PORT}`)
+log.info(`starting websocket server on port: ${PORT}`)
 SERVER.on('connection', (socket) => {
 
     // if too many users
@@ -377,7 +377,7 @@ SERVER.on('connection', (socket) => {
     // on-connection server asks which game user has
     CUR_PEER_CNT++;
     let peer = new WebPeer(socket);
-    log.debug(`peer: ${peer.webId} connected to server (${CUR_PEER_CNT}/${MAX_CONNS})`)
+    log.info(`peer: ${peer.webId} connected to server (${CUR_PEER_CNT}/${MAX_CONNS})`)
     socket.send(packMessage(PROTO.GAME))
 
     socket.on('message', (rawData) => {
@@ -395,7 +395,7 @@ SERVER.on('connection', (socket) => {
     
     socket.on('close', (code, reason) => {
         CUR_PEER_CNT--;
-        log.debug(`peer: ${peer.webId} disconnected from server [${code}]:${reason}`)
+        log.info(`peer: ${peer.webId} disconnected from server [${code}]:${reason}`)
 
         // logic for removing from lobbies
         if (peer.lobby != null && !peer.lobby.isSealed) {
