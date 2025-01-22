@@ -20,7 +20,6 @@ const PORT = 9090;
 const SERVER = new WebSocketServer({ port: PORT});
 const PING_INTERVAL = 10000; // web socket ping for all connected clients every 10s
 const MAX_CONNS = 4096;
-const MAX_PLAYERS = 8;
 
 // CURRENT PEER COUNT (connection count)
 let CUR_PEER_CNT = 0;
@@ -30,9 +29,9 @@ let LOBBIES_LIST = [];
  * To support:
  * [ ] WebRTC multiplayer (essential) max 8 players
  * [ ] matchmaking (queue)
- * [ ] private lobby (friends)
- * [ ] open lobbies (multiple hosts)
- * [ ] different games for same signalling server (incompatible lobbies)
+ * [x] private lobby (friends)
+ * [x] open lobbies (viewable lobbies) 
+ * [x] different games for same signalling server (incompatible lobbies)
  */
 
 // WEB SOCKET SERVER PROTOCOLS:
@@ -67,7 +66,7 @@ const UNKNOWN_ERR = [4010, 'Unknown error'];
 
 class WebError extends Error {
     constructor (code, reason) {
-        super.message(reason);
+        super(reason)
         this.code = code;
         this.reason = reason;
     }
@@ -76,7 +75,8 @@ class WebError extends Error {
 class WebPeer {
     constructor (socket) {
         this.gameName = null;
-        this.webId = parseInt(`${Math.floor(new Date() % 100_000_000)}${Math.floor(Math.random() * 100_000)}`);
+        // this.webId = parseInt(`${Math.floor(new Date() % 100_000_000)}${Math.floor(Math.random() * 100_000)}`);
+        this.webId = Math.floor(Math.random() * (2147483647 - 2) - 2);
         this.rtcId = null;
         this.isHost = false;
         this.lobby = null;
@@ -95,7 +95,7 @@ class WebPeer {
 }
 
 class GameLobby {
-    constructor (gameName, isOpen=false, isMesh=false, maxPeers=8, autoSeal=false) {
+    constructor (gameName, isOpen=false, isMesh=false, maxPeers=8, autoSeal=false, xtra=null) {
         this.gameName = gameName;
         this.isOpen = isOpen;
         this.isSealed = false;
@@ -104,6 +104,7 @@ class GameLobby {
         this.isMesh = isMesh;
         this.maxPeers = maxPeers;
         this.autoSeal = autoSeal;
+        this.xtra = xtra;               // addtional field for creative usage
     }
 
     add_peer(peer) {
@@ -116,6 +117,7 @@ class GameLobby {
         this.peerList = this.peerList.filter((p) => p.webId != peer.webId);
     }
 
+    
 }
 
 function packMessage(proto, data = {}) {
@@ -156,24 +158,27 @@ function handleMessage(rawData, peer) {
         const isMesh = data['isMesh'] || false;
         const autoSeal = data['autoSeal'] || false;
         const maxPeers = data['maxPeers'] || 8;
-        peer.rtcId = data['rtcId'] || 1;            // default host id is 1
+        const xtra = data['xtra'] || null;
+        peer.rtcId = 1;                             // default host id is 1
         peer.isHost = true;
-        peer.lobby = new GameLobby(peer.gameName, isOpen, isMesh, maxPeers, autoSeal=autoSeal);
-        log.debug('lobby created')
+        let lobby = new GameLobby(peer.gameName, isOpen, isMesh, maxPeers, autoSeal, xtra);
+        peer.lobby = lobby;
+        log.debug(`lobby created: (${peer.lobby.lobbyCode})`);
         peer.lobby.add_peer(peer);
         peer.socket.send(packMessage(PROTO.HOST, {lobbyCode: peer.lobby.lobbyCode, maxPeers: peer.lobby.maxPeers, autoSeal: peer.lobby.autoSeal}));
+        LOBBIES_LIST.push(peer.lobby);
+        log.debug('lobbies: ', JSON.stringify(LOBBIES_LIST,(key, value) => key === 'peerList' ? value.map((p) => p.webId) : value));
         return;
     }
 
     if (proto == PROTO.JOIN) {
         // attempt to join a lobby
-        if (typeof data['rtcId'] !== 'number' || data['rtcId'] <= 1) {
-            throw new WebError(...INVALID_ID)
-        }
-        peer.rtcId = data['rtcId'];
+        peer.rtcId = peer.webId;
+        peer.isHost = false;
         const lobbyCode = data['lobbyCode'] || null;
         let lobby = LOBBIES_LIST.find((l) => l.lobbyCode === lobbyCode && l.isSealed == false) || null;
         if (lobby != null) {
+            peer.socket.send(packMessage(PROTO.JOIN, {success: true, rtcId: peer.rtcId, isMesh: lobby.isMesh}));
             peer.lobby = lobby;
             lobby.peerList.forEach((p) => {
                 // message exisitng peer of new peer
@@ -184,9 +189,15 @@ function handleMessage(rawData, peer) {
 
             });
             lobby.add_peer(peer);
-            peer.socket.send(packMessage(PROTO.JOIN, {success: true, isMesh: lobby.isMesh}));
         } else {
             peer.socket.send(packMessage(PROTO.JOIN, {success: false}));
+        }
+        if (lobby.autoSeal && lobby.peerList.length == lobby.maxPeers) {
+            setTimeout(() => {
+                lobby.peerList.find((p) => p.isHost).socket.send(
+                    packMessage(PROTO.SEAL, {rtcId: p.rtcId, status: 'ready'})      // for autoSeal, trigger host to start game if lobby is full
+                );
+            }, 1000 * 10);
         }
         return;
     }
@@ -219,6 +230,8 @@ function handleMessage(rawData, peer) {
                     lobbyCode: lobby.lobbyCode,
                     peerCount: lobby.peerList.length,
                     isMesh: lobby.isMesh,
+                    autoSeal: lobby.autoSeal,
+                    xtra: lobby.xtra,
                 }
             });
             peer.socket.send(packMessage(PROTO.VIEW, {lobbyList: lobbyList}));
@@ -234,6 +247,8 @@ function handleMessage(rawData, peer) {
                     lobbyCode: lobby.lobbyCode,
                     peerCount: lobby.peerList.length,
                     isMesh: lobby.isMesh,
+                    autoSeal: lobby.autoSeal,
+                    xtra: lobby.xtra,
                 }
             });
             peer.socket.send(packMessage(PROTO.VIEW, {lobbyList: lobbyList}));
@@ -247,53 +262,70 @@ function handleMessage(rawData, peer) {
     
     if (proto == PROTO.OFFER) {
         const offer = data['offer'] || null;
-        if (offer == null) {
+        const rtcId = data['rtcId'] || null;
+        if (offer == null || rtcId == null) {
             throw new WebError(...BAD_OFFER);
         }
 
         // relay offer to all peers in same lobby
-        peer.lobby.peerList.forEach((p) => {
-            if (p.webId != peer.webId) {
-                p.send(packMessage(PROTO.OFFER, {offer: offer, rtcId: peer.rtcId}))
-            }
-        });
+        // peer.lobby.peerList.forEach((p) => {
+        //     if (p.webId != peer.webId) {
+        //         p.send(packMessage(PROTO.OFFER, {offer: offer, rtcId: peer.rtcId}))
+        //     }
+        // });
+        peer.lobby.peerList.find((p) => p.rtcId == rtcId).socket.send(packMessage(PROTO.OFFER, {
+            rtcId: rtcId,
+            offer: offer,
+        }));
         return;
     }
 
     if (proto == PROTO.ANSWER) {
         const answer = data['answer'] || null;
-        if (answer == null) {
+        const rtcId = data['rtcId'] || null;
+        if (answer == null || rtcId == null) {
             throw new WebError(...BAD_ANSWER);
         }
 
         // relay answer to all peers in same lobby
-        peer.lobby.peerList.forEach((p) => {
-            if (p.webId != peer.webId) {
-                p.send(packMessage(PROTO.ANSWER, {answer: answer, rtcId: peer.rtcId}))
-            }
-        });
+        // peer.lobby.peerList.forEach((p) => {
+        //     if (p.webId != peer.webId) {
+        //         p.send(packMessage(PROTO.ANSWER, {answer: answer, rtcId: peer.rtcId}))
+        //     }
+        // });
+        peer.lobby.peerList.find((p) => p.rtcId == rtcId).socket.send(packMessage(PROTO.ANSWER, {
+            rtcId: rtcId,
+            answer: answer,
+        }));
         return;
     }
 
     if (proto == PROTO.CANDIDATE) {
         const media = data['media'] || null;
         const index = data['index'] || null;
-        const sdp = data['sdp'] || null
-        if (media == null || index == null || sdp == null) {
+        const sdp = data['sdp'] || null;
+        const rtcId = data['rtcId'] || null;
+        if (media == null || index == null || sdp == null || rtcId == null) {
             throw new WebError(...BAD_CANDIDATE);
         }
 
         // relay candidate to all peers in same lobby
-        peer.lobby.peerList.forEach((p) => {
-            if (p.webId != peer.webId) {
-                p.send(packMessage(PROTO.CANDIDATE, {
-                    rtcId: peer.rtcId,
-                    media: media,
-                    index: index,
-                    sdp: sdp,
-                }));
-            }
-        });
+        // peer.lobby.peerList.forEach((p) => {
+        //     if (p.webId != peer.webId) {
+        //         p.send(packMessage(PROTO.CANDIDATE, {
+        //             rtcId: peer.rtcId,
+        //             media: media,
+        //             index: index,
+        //             sdp: sdp,
+        //         }));
+        //     }
+        // });
+        peer.lobby.peerList.find((p) => p.rtcId == rtcId).socket.send(packMessage(PROTO.CANDIDATE, {
+            rtcId: rtcId,
+            media: media,
+            index: index,
+            sdp: sdp,
+        }));
         return;
     }
 
@@ -353,7 +385,11 @@ SERVER.on('connection', (socket) => {
         try{
             handleMessage(rawData, peer, socket);
         } catch(err) {
-            throw err;
+            log.error(err)
+            if (err instanceof WebError) {
+                peer.socket.send(packMessage(PROTO.ERR, {code: err.code, reason: err.reason}));
+            }
+            
         }
     });
     
@@ -365,6 +401,7 @@ SERVER.on('connection', (socket) => {
         if (peer.lobby != null && !peer.lobby.isSealed) {
             if (peer.isHost) {
                 // peer disconnect from lobby if host
+                log.debug(`deleting lobby: (${peer.lobby.lobbyCode})`);
                 let lobby = peer.lobby;
                 peer.lobby.rm_peer(peer);
                 peer.lobby.peerList.forEach((p) => {
@@ -372,8 +409,9 @@ SERVER.on('connection', (socket) => {
                     p.lobby = null;
                 });
                 // delete lobby
-                LOBBIES_LIST = LOBBIES_LIST.filter((l) => l.lobbyCode === lobby.lobbyCode);
+                LOBBIES_LIST = LOBBIES_LIST.filter((l) => l.lobbyCode !== lobby.lobbyCode);
                 lobby = null;
+                log.debug('lobbies: ', JSON.stringify(LOBBIES_LIST,(key, value) => key === 'peerList' ? value.map((p) => p.webId) : value));
 
             } else {
                 // peer disconnect from lobby if not host
@@ -384,14 +422,16 @@ SERVER.on('connection', (socket) => {
             }
         } else if (peer.lobby != null && peer.lobby.isSealed && peer.isHost) {
             // host disconnecting to start game
+            log.debug(`deleting lobby: (${peer.lobby.lobbyCode})`);
             let lobby = peer.lobby;
             peer.lobby.peerList.forEach((p) => {
                 p.socket.send(packMessage(PROTO.START, {}));
                 p.lobby = null;
             });
             // delete lobby
-            LOBBIES_LIST = LOBBIES_LIST.filter((l) => l.lobbyCode === lobby.lobbyCode);
+            LOBBIES_LIST = LOBBIES_LIST.filter((l) => l.lobbyCode !== lobby.lobbyCode);
             lobby = null;
+            log.debug('lobbies: ', JSON.stringify(LOBBIES_LIST,(key, value) => key === 'peerList' ? value.map((p) => p.webId) : value));
         }
     });
 
