@@ -82,6 +82,12 @@ class WebPeer {
         this.lobby = null;
         this.socket = socket;
 
+        setTimeout(() => { // auto disconnect after 30 seconds if request for game name is unmet
+            if (this.gameName == null) {
+                this.socket.close(...IDLE_SOCKET_CONN);
+            }
+        }, 1000 * 30);
+
         setTimeout(() => { // auto disconnect after 1 hour
             this.socket.close(...IDLE_SOCKET_CONN);
         }, 1000 * 60 * 60);
@@ -134,13 +140,12 @@ function handleMessage(rawData, peer) {
 
     if (proto < 0 || proto > 12) {
         // bad protocol
-        peer.socket.send(packMessage(PROTO.ERR,  {proto: proto, data: data}))
-        return;
+        throw new WebError(...BAD_PROTO);
     }
 
     if (proto == PROTO.GAME) {
         // add gameName to peer
-        peer.gameName = data.gameName;
+        peer.gameName = data['gameName'] || null;
         return;
     }
 
@@ -203,18 +208,37 @@ function handleMessage(rawData, peer) {
 
     if (proto == PROTO.VIEW) {
         // list open lobbies
-        let lobbyList = LOBBIES_LIST.filter(((lobby) => lobby.gameName === peer.gameName))
-            .filter((lobby) => lobby.isOpen && !lobby.isSealed);
-        lobbyList = lobbyList.map((lobby) => {
-            return {
-                maxPeers: lobby.maxPeers,
-                lobbyCode: lobby.lobbyCode,
-                peerCount: lobby.peerList.length,
-                isMesh: lobby.isMesh,
-            }
-        });
-        peer.socket.send(packMessage(PROTO.VIEW, {lobbyList: lobbyList}));
-        return;
+        const lobbyCode = data['lobbyCode'] || null;
+        if (peer.lobby) {
+            // get details for requested lobby
+            let lobbyList = LOBBIES_LIST.filter(((lobby) => lobby.gameName === peer.gameName))
+                .filter((lobby) => lobby.isOpen && !lobby.isSealed);
+            lobbyList = lobbyList.map((lobby) => {
+                return {
+                    maxPeers: lobby.maxPeers,
+                    lobbyCode: lobby.lobbyCode,
+                    peerCount: lobby.peerList.length,
+                    isMesh: lobby.isMesh,
+                }
+            });
+            peer.socket.send(packMessage(PROTO.VIEW, {lobbyList: lobbyList}));
+            return;
+
+        } else {
+            // List all open lobbies
+            let lobbyList = LOBBIES_LIST.filter(((lobby) => lobby.gameName === peer.gameName))
+                .filter((lobby) => lobby.isOpen && !lobby.isSealed);
+            lobbyList = lobbyList.map((lobby) => {
+                return {
+                    maxPeers: lobby.maxPeers,
+                    lobbyCode: lobby.lobbyCode,
+                    peerCount: lobby.peerList.length,
+                    isMesh: lobby.isMesh,
+                }
+            });
+            peer.socket.send(packMessage(PROTO.VIEW, {lobbyList: lobbyList}));
+            return;
+        }
     }
 
     if (proto == PROTO.PEER_RM) {
