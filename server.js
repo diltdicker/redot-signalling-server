@@ -16,7 +16,7 @@ const IS_PROD = process.env.NODE_ENV === 'production'
 log.setLevel( IS_PROD ? log.levels.WARN : log.levels.DEBUG)
 
 
-const PORT = 8080;
+const PORT = process.env.PORT || 8080;
 const SERVER = new WebSocketServer({ port: PORT});
 const PING_INTERVAL = 10000; // web socket ping for all connected clients every 10s
 const MAX_CONNS = 4096;
