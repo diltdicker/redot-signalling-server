@@ -184,10 +184,10 @@ function handleMessage(rawData, peer) {
             peer.lobby = lobby;
             lobby.peerList.forEach((p) => {
                 // message exisitng peer of new peer
-                p.socket.send(packMessage(PROTO.PEER_ADD, {peerId: peer.rtcId}));
+                p.socket.send(packMessage(PROTO.PEER_ADD, {rtcId: peer.rtcId}));
 
                 // message new peer of existing peer
-                peer.socket.send(packMessage(PROTO.PEER_ADD, {peerId: p.rtcId}));
+                peer.socket.send(packMessage(PROTO.PEER_ADD, {rtcId: p.rtcId}));
 
             });
             lobby.add_peer(peer);
@@ -373,6 +373,7 @@ SERVER.on('connection', (socket) => {
 
     // if too many users
     if (CUR_PEER_CNT >= MAX_CONNS) {
+        socket.send(packMessage(PROTO.ERR, {code: TOO_MANY_PEERS[0], reason: TOO_MANY_PEERS[1]}))
         socket.close(...TOO_MANY_PEERS)
     }
 
