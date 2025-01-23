@@ -65,8 +65,9 @@ const IDLE_SOCKET_CONN = [4009, 'Idle socket connection for too long'];
 const UNKNOWN_ERR = [4010, 'Unknown error'];
 
 class WebError extends Error {
-    constructor (code, reason) {
+    constructor (code, reason, webId=null) {
         super(reason)
+        this.webId = webId;
         this.code = code;
         this.reason = reason;
         this.message = reason;
@@ -195,7 +196,7 @@ function handleMessage(rawData, peer) {
         } else {
             peer.socket.send(packMessage(PROTO.JOIN, {success: false}));
         }
-        if (lobby.autoSeal && lobby.peerList.length == lobby.maxPeers) {
+        if (lobby.autoSeal && lobby.peerList.length == lobby.maxPeers && !lobby.isSealed) {
             setTimeout(() => {
                 lobby.peerList.find((p) => p.isHost).socket.send(
                     packMessage(PROTO.SEAL, {rtcId: p.rtcId, status: 'ready'})      // for autoSeal, trigger host to start game if lobby is full
@@ -309,7 +310,8 @@ function handleMessage(rawData, peer) {
         const sdp = data['sdp'] || null;
         const rtcId = data['rtcId'] || null;
         if (media == null || index == null || sdp == null || rtcId == null) {
-            throw new WebError(...BAD_CANDIDATE);
+            log.error(...BAD_CANDIDATE);
+            throw new WebError(...BAD_CANDIDATE, peer.webId);
         }
 
         // relay candidate to all peers in same lobby
@@ -385,7 +387,7 @@ SERVER.on('connection', (socket) => {
     try {
         socket.send(packMessage(PROTO.GAME))
     } catch(err) {
-        log.error('[on_connect] ', err);
+        log.error('[on_connect] ', err.message);
     }
 
     socket.on('message', (rawData) => {
@@ -393,7 +395,7 @@ SERVER.on('connection', (socket) => {
         try{
             handleMessage(rawData, peer, socket);
         } catch(err) {
-            log.error('[on_message] ', err)
+            log.error('[on_message] ', err.message, err.webId || '')
             if (err instanceof WebError) {
                 peer.socket.send(packMessage(PROTO.ERR, {code: err.code, reason: err.reason}));
             }
@@ -443,7 +445,7 @@ SERVER.on('connection', (socket) => {
                 log.debug('lobbies: ', JSON.stringify(LOBBIES_LIST,(key, value) => key === 'peerList' ? value.map((p) => p.webId) : value));
             }
         } catch(err) {
-            log.error('[on_close] ', err);
+            log.error('[on_close] ', err.message);
         }
         
     });
@@ -455,7 +457,7 @@ SERVER.on('connection', (socket) => {
                 peer.send(packMessage(PROTO.ERR, {code: err.code, reason: err.reason}));
             }
         } catch(err) {
-            log.error('[on_error] ', err);
+            log.error('[on_error] ', err.message);
         }
     });
 });
