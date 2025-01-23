@@ -306,11 +306,11 @@ function handleMessage(rawData, peer) {
 
     if (proto == PROTO.CANDIDATE) {
         const media = data['media'] || null;
-        const index = data['index'] || null;
+        const index = typeof data['index'] === 'number' ? parseInt(data['index']) : null;
         const sdp = data['sdp'] || null;
         const rtcId = data['rtcId'] || null;
+
         if (media == null || index == null || sdp == null || rtcId == null) {
-            log.error(...BAD_CANDIDATE);
             throw new WebError(...BAD_CANDIDATE, peer.webId);
         }
 
@@ -395,7 +395,7 @@ SERVER.on('connection', (socket) => {
         try{
             handleMessage(rawData, peer, socket);
         } catch(err) {
-            log.error('[on_message] ', err.message, err.webId || '')
+            log.error('[on_message] ', err.webId ? `peer: ${err.webId} ` : '', err.message)
             if (err instanceof WebError) {
                 peer.socket.send(packMessage(PROTO.ERR, {code: err.code, reason: err.reason}));
             }
