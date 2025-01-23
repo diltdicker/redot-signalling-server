@@ -165,11 +165,12 @@ function handleMessage(rawData, peer) {
         peer.isHost = true;
         let lobby = new GameLobby(peer.gameName, isOpen, isMesh, maxPeers, autoSeal, custom);
         peer.lobby = lobby;
-        log.info(`peer: ${peer.webId} created lobby: ${peer.lobby.lobbyCode} for game: ${peer.gameName} maxPeers=${maxPeers}`);
-        peer.lobby.add_peer(peer);
-        peer.socket.send(packMessage(PROTO.HOST, {lobbyCode: peer.lobby.lobbyCode, maxPeers: peer.lobby.maxPeers, autoSeal: peer.lobby.autoSeal}));
+        const lobbyCode = lobby.lobbyCode;
+        log.info(`peer: ${peer.webId} created lobby: ${lobbyCode} for game: ${peer.gameName} maxPeers=${maxPeers}`);
+        lobby.add_peer(peer);
+        peer.socket.send(packMessage(PROTO.HOST, {lobbyCode: lobbyCode, maxPeers: lobby.maxPeers, autoSeal: lobby.autoSeal}));
         if (isOpen) {
-            LOBBIES_LIST.push(peer.lobby);
+            LOBBIES_LIST.push(lobby);
         }
         log.debug('lobbies: ', JSON.stringify(LOBBIES_LIST,(key, value) => key === 'peerList' ? value.map((p) => p.webId) : value));
         return;
