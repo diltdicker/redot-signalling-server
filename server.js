@@ -69,6 +69,7 @@ class WebError extends Error {
         super(reason)
         this.code = code;
         this.reason = reason;
+        this.message = reason;
     }
 }
 
