@@ -277,10 +277,12 @@ function handleMessage(rawData, peer) {
         //         p.send(packMessage(PROTO.OFFER, {offer: offer, rtcId: peer.rtcId}))
         //     }
         // });
-        peer.lobby.peerList.find((p) => p.rtcId == rtcId).socket.send(packMessage(PROTO.OFFER, {
-            rtcId: rtcId,
-            offer: offer,
-        }));
+        peer.lobby.peerList.find((p) => p.rtcId == rtcId).socket.send(
+            packMessage(PROTO.OFFER, {
+                rtcId: peer.rtcId,      // destination peer != sendig peer
+                offer: offer,
+            }
+        ));
         return;
     }
 
@@ -297,10 +299,12 @@ function handleMessage(rawData, peer) {
         //         p.send(packMessage(PROTO.ANSWER, {answer: answer, rtcId: peer.rtcId}))
         //     }
         // });
-        peer.lobby.peerList.find((p) => p.rtcId == rtcId).socket.send(packMessage(PROTO.ANSWER, {
-            rtcId: rtcId,
-            answer: answer,
-        }));
+        peer.lobby.peerList.find((p) => p.rtcId == rtcId).socket.send(
+            packMessage(PROTO.ANSWER, {
+                rtcId: peer.rtcId,          // destination peer != sendig peer
+                answer: answer,
+            }
+        ));
         return;
     }
 
@@ -325,12 +329,14 @@ function handleMessage(rawData, peer) {
         //         }));
         //     }
         // });
-        peer.lobby.peerList.find((p) => p.rtcId == rtcId).socket.send(packMessage(PROTO.CANDIDATE, {
-            rtcId: rtcId,
-            media: media,
-            index: index,
-            sdp: sdp,
-        }));
+        peer.lobby.peerList.find((p) => p.rtcId == rtcId).socket.send(
+            packMessage(PROTO.CANDIDATE, {
+                rtcId: peer.rtcId,          // destination peer != sendig peer
+                media: media,
+                index: index,
+                sdp: sdp,
+            }
+        ));
         return;
     }
 
@@ -340,7 +346,7 @@ function handleMessage(rawData, peer) {
             peer.lobby.isSealed = true;
             peer.lobby.peerList.forEach((p) => {
                 if (p.webId != peer.webId) {
-                    p.socket.send(packMessage(PROTO.SEAL))
+                    p.socket.send(packMessage(PROTO.SEAL));
                 }
             });
         } else if (!peer.isHost && peer.lobby) {
@@ -371,13 +377,13 @@ const unpackMessage = (rawData) => {
 }
 
 // RUN WEBSOCKET SERVER
-log.info(`starting websocket server on port: ${PORT}`)
+log.info(`starting websocket server on port: ${PORT}`);
 SERVER.on('connection', (socket) => {
 
     // if too many users
     if (CUR_PEER_CNT >= MAX_CONNS) {
-        socket.send(packMessage(PROTO.ERR, {code: TOO_MANY_PEERS[0], reason: TOO_MANY_PEERS[1]}))
-        socket.close(...TOO_MANY_PEERS)
+        socket.send(packMessage(PROTO.ERR, {code: TOO_MANY_PEERS[0], reason: TOO_MANY_PEERS[1]}));
+        socket.close(...TOO_MANY_PEERS);
     }
 
     // on-connection server asks which game user has
@@ -385,7 +391,7 @@ SERVER.on('connection', (socket) => {
     let peer = new WebPeer(socket);
     log.info(`peer: ${peer.webId} connected to server (${CUR_PEER_CNT}/${MAX_CONNS})`)
     try {
-        socket.send(packMessage(PROTO.GAME))
+        socket.send(packMessage(PROTO.GAME));
     } catch(err) {
         log.error('[on_connect] ', err.message);
     }
@@ -395,7 +401,7 @@ SERVER.on('connection', (socket) => {
         try{
             handleMessage(rawData, peer, socket);
         } catch(err) {
-            log.error('[on_message] ', err.webId ? `peer: ${err.webId} ` : '', err.message)
+            log.error('[on_message] ', err.webId ? `peer: ${err.webId} ` : '', err.message);
             if (err instanceof WebError) {
                 peer.socket.send(packMessage(PROTO.ERR, {code: err.code, reason: err.reason}));
             }
