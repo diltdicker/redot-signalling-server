@@ -293,7 +293,7 @@ function handleMessage(rawMessage, peer) {
 
         let lobbyList = [];
         if (lobbyCode != null) {
-            lobbyList = LOBBIES_LIST.filter((l) => l.lobbyCode)
+            lobbyList = LOBBIES_LIST.filter((l) => l.lobbyCode == lobbyCode);
         } else {
             lobbyList = LOBBIES_LIST.filter((l) => game === l.game && l.isActive && l.peerList.length < l.maxPeers && l.lobbyType != LOBBY_TYPE.PRIVATE);
         }
