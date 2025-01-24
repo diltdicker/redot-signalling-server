@@ -4,11 +4,11 @@
   "version": "0.1.0",
   "description": "signalling server implementation for redot multiplayer WebRTC",
   "engines": {"node": "18.x"},
-  "main": "server.js",
+  "main": "src/server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js",
-    "client": "node client.cjs"
+    "start": "node src/server.js",
+    "client": "node src/client.cjs"
   },
   "repository": {
     "type": "git",

@@ -101,7 +101,7 @@ class GameLobby {
         this.gameName = gameName;
         this.isOpen = isOpen;
         this.isSealed = false;
-        this.lobbyCode = toBb26(Math.floor(Math.random() * (26**8 - 26**7)) - 26**7);  // random 8 letter code
+        this.lobbyCode = generateRoom() || generateRoom();  // random 8 letter code
         this.peerList = [];
         this.isMesh = isMesh;
         this.maxPeers = maxPeers;
@@ -130,6 +130,9 @@ function packMessage(proto, data = {}) {
     });
 }
 
+function generateRoom() {
+    return toBb26(Math.floor(Math.random() * (Math.pow(26, 8) - Math.pow(26, 7))) - Math.pow(26, 7));
+}
 
 /**
  * Function for handling all inputs to websocket server
