@@ -295,7 +295,7 @@ function handleMessage(rawMessage, peer) {
         if (lobbyCode != null) {
             lobbyList = LOBBIES_LIST.filter((l) => l.lobbyCode)
         } else {
-            lobbyList = LOBBIES_LIST.filter((l) => game === l.game && l.isActive && l.peerList.length < l.maxPeers && l.lobbyType == LOBBY_TYPE.PUBLIC);
+            lobbyList = LOBBIES_LIST.filter((l) => game === l.game && l.isActive && l.peerList.length < l.maxPeers && l.lobbyType != LOBBY_TYPE.PRIVATE);
         }
         lobbyList = lobbyList.map((l) => {
             return {
