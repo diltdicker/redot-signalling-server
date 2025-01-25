@@ -290,13 +290,16 @@ function handleMessage(rawMessage, peer) {
         const tags = data['tags'] || null;
         const isMesh = data['isMesh'] || true;
         log.info(rawMessage);
-        log.info(game,maxPeers,tags,isMesh)
+        log.info(`game: "${game}", maxPeers: "${maxPeers}", tags: "${tags}", isMesh: "${isMesh}"`);
         if (game == null || maxPeers == -1) {
             sendMessage(peer.socket, PROTO.ERR, {code: BAD_QUEUE[0], reason: BAD_QUEUE[1]});
             return;
         }
 
         // CHECK IF LOBBY EXISTS
+        LOBBIES_LIST.forEach((l) => {
+            log.info(`game: "${l.game}", maxPeers: "${l.maxPeers}", tags: "${l.tags}", isMesh: "${l.peerList.length}" lobbyType: ${l.lobbyType == LOBBY_TYPE.QUEUE}`);
+        });
         let lobbyList = LOBBIES_LIST.filter((l) => l.game === game && 
             l.lobbyType == LOBBY_TYPE.QUEUE && l.isActive && l.maxPeers == maxPeers && l.tags === tags && l.peerList.length < l.maxPeers);
 
