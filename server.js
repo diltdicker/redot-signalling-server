@@ -187,7 +187,7 @@ function sendMessage(socket, protocol, data = {}) {
 function unwrapMessage(rawMessage) {
     let json = null;
         try {
-            json = JSON.parse(rawData);
+            json = JSON.parse(rawMessage);
         } catch (err) {
             log.error("unable to read message")
             return { protocol: -1, data: null};
