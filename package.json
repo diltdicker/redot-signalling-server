@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "redot-signalling-server",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "signalling server implementation for redot multiplayer WebRTC",
   "engines": {"node": "18.x"},
   "main": "server.js",

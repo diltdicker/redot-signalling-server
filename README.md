@@ -1,5 +1,20 @@
 # Redot/Godot Signalling Server
 
+## Features
+
+Singalling server features: hosting multiple different game profiles,
+private lobbies, public lobbies, and automatic queues for multiplayer.
+
+## Instructions:
+
+Run server on hosted platform (e.g. heroku) and note the web address.
+
+In Godot/Redot copy the `addons` folder to project directory and enable the plugin.
+Use the custom node `PeerToPeerMultiplayer` to setup your RTC connections. Url to
+hosted socket server should begin with either prefix `ws://` or `wss://` depending on how
+your hosted server is configured.
+
+
 ## Websocket Protocols
 
 ```
@@ -15,7 +30,7 @@
 
 5: ADD: ([server] Initiates call to inform user of new peer connection)
 
-6: RM: ([server] Initiates call to inform user of peer disconnecting or lobby deletion)
+6: KICK: ([server] Initiates call to inform user of peer disconnecting or lobby deletion)
 
 7: OFFER: ([user] Initiates rtc offer to be relayed to desired user in lobby. [server] Relays call to desired user tagging the sending user's peer id)
 
@@ -25,7 +40,7 @@
 
 10: READY: ([server] Initiates call to host to confirm all user connections. [user] Initiates call to server to send READY call to host (in case of not a queued lobby)) 
 
-11: START: ([user] Initiates call to server to disable lobby and close all user connections)
+11: START: ([user] Initiates call to server to disable lobby and close all user connections. [server] Relays call to all peers (including host) to simultaneously start game, server then closes all connections)
 
 12: ERR: ([server] Initiates call to inform user of server error)
 
