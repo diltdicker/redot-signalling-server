@@ -260,7 +260,6 @@ function handleMessage(rawMessage, peer) {
                 peer.lobbyId = peer.id;
                 peer.lobby = lobby;
                 lobby.peerList.push(peer);
-                log.info(peer.lobby.peerList.map(p => p.lobbyId));
                 sendMessage(peer.socket, PROTO.JOIN, {id: peer.lobbyId, isMesh: lobby.isMesh, lobbyCode: lobby.lobbyCode});         // lobby found :)
                 lobby.peerList.filter((p) => p.lobbyId != peer.lobbyId).forEach((p) => {
                     setImmediate(() => {    // setImmediate to provide a tiny delay & not hog the I/O
