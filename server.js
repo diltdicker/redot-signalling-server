@@ -72,7 +72,7 @@ function generateLobbyCode() {
     return toBb26(Math.abs(randNum));
 }
 
-function cancelTimeOut(timeoutId) {
+function cancelTimeout(timeoutId) {
     if (timeoutId) {
         clearTimeout(timeoutId);
     }
@@ -175,7 +175,7 @@ class User {
  * @returns stringified 
  */
 function sendMessage(socket, protocol, data = {}) {
-    log.info(`sending message | call: ${protocol}, data: ${JSON.stringify(data)}}`);
+    log.debug(`sending message | call: ${protocol}, data: ${JSON.stringify(data)}}`);
     socket.send(JSON.stringify({
         'call': protocol,
         'data': data
@@ -264,9 +264,7 @@ function handleMessage(rawMessage, peer) {
                 log.info(peer.lobby.peerList.map(p => p.lobbyId));
                 sendMessage(peer.socket, PROTO.JOIN, {id: peer.lobbyId, isMesh: lobby.isMesh, lobbyCode: lobby.lobbyCode});         // lobby found :)
                 lobby.peerList.filter((p) => p.lobbyId != peer.lobbyId).forEach((p) => {
-                    log.info('this is working???');
                     setImmediate(() => {    // setImmediate to provide a tiny delay & not hog the I/O
-                        log.info(`what is p: ${p.lobbyId} what is peer: ${peer.lobbyId}`)
                         sendMessage(p.socket, PROTO.ADD, {peerId: peer.lobbyId});        // inform other peers of new user
                         sendMessage(peer.socket, PROTO.ADD, {peerId: p.lobbyId});        // inform new user of other peers
                     });
@@ -356,14 +354,20 @@ function handleMessage(rawMessage, peer) {
             return;
         }
         if (peer.lobbyId == id && peer.isHost) { // host is kicking themselves
+            log.info(`peer: ${peer.id} has stopped hosting: ${lobby.lobbyCode} deleting lobby`);
             peer.lobby.kickPeer(peer);
             peer.lobby.peerList.forEach((p) => {
                 setImmediate(() => {
                     sendMessage(p.socket, PROTO.KICK, {id: peer.lobbyId, lobbyAlive: false});
                     p.lobby = null;
                 });
-            })
+            });
+            let lobby = peer.lobby;
+            lobby.peerList = [];
             peer.lobby = null;
+            LOBBIES_LIST = LOBBIES_LIST.filter((l) => l.lobbyCode != lobby.lobbyCode);      // delete lobby
+            cancelInterval(lobby.queueIntervalId);
+            cancelTimeout(lobby.timeoutId);
 
         } else if (peer.isHost && peer.lobbyId != id) { // host is kickig player
             let user = peer.lobby.find((p) => p.lobbyId == id) || null;
@@ -373,7 +377,9 @@ function handleMessage(rawMessage, peer) {
                     setImmediate(() => {
                         sendMessage(p.socket, PROTO.KICK, {id: user.lobbyId, lobbyAlive: true});
                     });
-                })
+                });
+                let lobby = peer.lobby;
+                lobby.peerList = lobby.peerList.filter((p) => p != user.lobbyId);   // remove player from lobbby
                 user.lobby = null;
             }
 
@@ -383,7 +389,9 @@ function handleMessage(rawMessage, peer) {
                 setImmediate(() => {
                     sendMessage(p.socket, PROTO.KICK, {id: peer.lobbyId, lobbyAlive: true});
                 });
-            })
+            });
+            let lobby = peer.lobby;
+            lobby.peerList = lobby.peerList.filter((p) => p != peer.lobbyId);   // remove player from lobbby
             peer.lobby = null;
         }
     
@@ -401,11 +409,7 @@ function handleMessage(rawMessage, peer) {
             sendMessage(peer.socket, PROTO.ERR, {code: BAD_MESSAGE[0], reason: BAD_MESSAGE[1]});
             return;
         }
-
-        log.info(toId)
-        log.info(peer.lobby.peerList.map(p => p.lobbyId))
         let toPeer = peer.lobby.peerList.find((p) => p.lobbyId == toId);
-        log.info(toPeer);
 
         if (protocol == PROTO.OFFER) {
             // OFFER
@@ -466,9 +470,6 @@ function handleMessage(rawMessage, peer) {
     }
 }
 
-
-generateLobbyCode(); // throwaway to ensure lib is loaded
-
 // RUN WEBSOCKET SERVER
 log.info(`starting websocket server on port: ${PORT}`);
 SERVER.on('connection', (socket) => { 
@@ -501,7 +502,7 @@ SERVER.on('connection', (socket) => {
          */
         CUR_PEER_CNT--;
         log.info(`peer: ${peer.id} disconnected from server [${code}]:${reason}`)
-        clearTimeout(peer.longTimeoutId);
+        cancelTimeout(peer.longTimeoutId);
         try {
             // logic for removing from lobbies
             if (peer.lobby != null && peer.lobby.isActive) {
@@ -527,10 +528,13 @@ SERVER.on('connection', (socket) => {
 
                     peer.lobby.peerList.forEach((p) => {
                         setImmediate(() => {
-                            sendMessage(p.socket, PROTO.KICK, {id: peer.lobbyId});
+                            sendMessage(p.socket, PROTO.KICK, {id: peer.lobbyId, lobbyAlive: true});
                         });
                     });
+                    let lobby = peer.lobby;
+                    lobby.peerList = lobby.peerList.filter((p) => p != peer.lobbyId);
                     peer.lobby = null;
+                    
                 }
             } else if (peer.lobby != null && !peer.lobby.isActive && peer.isHost) {
                 // host disconnects to start game
@@ -563,7 +567,6 @@ let pingIntervalId = setInterval(() => {
 }, PING_INTERVAL);
 
 let memIntervalId = setInterval(() => {
-    log.info(`lobbies: ${LOBBIES_LIST.map((l) => l.lobbyCode).join(',')}`);
     for (const [key,value] of Object.entries(process.memoryUsage())) {
         log.info(`Memory usage by ${key}, ${Math.floor(value/1_000)/1_000} MB`);    // log memory usage statistics
     }
