@@ -1,6 +1,6 @@
 # Redot/Godot Signalling Server
 
-<img src="addons/gaming_rtc/gaming_rtc_icon.svg" alt="GamingRTC" width="200"/>
+<img src="addons/gaming_rtc/gaming_rtc_icon.svg" alt="GamingRTC" width="150"/>
 
 ## Features
 
