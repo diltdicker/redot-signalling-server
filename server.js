@@ -287,11 +287,13 @@ function handleMessage(rawMessage, peer) {
         let lobbyList = LOBBIES_LIST.filter((l) => l.game === game && 
             l.lobbyType == LOBBY_TYPE.QUEUE && l.isActive && l.maxPeers == maxPeers && l.tags === tags && l.peerList.length < l.maxPeers);
 
-        if (lobbyList.length > 1) {     // Lobby Queue found :)
+        if (lobbyList.length > 0) {     // Lobby Queue found :)
             peer.lobbyId = peer.id;
             peer.isHost = false;
             let lobby = lobbyList[0];
             peer.lobby = lobby;
+            lobby.peerList.push(peer);
+            log.info(`peer: ${peer.id} joined queue: ${lobby.lobbyCode} for game: ${game}`);
             sendMessage(peer.socket, PROTO.QUEUE, {id: peer.lobbyId, isMesh: lobby.isMesh, lobbyCode: lobby.lobbyCode, isHost: peer.isHost});
             lobby.peerList.filter((p) => p.lobbyId != peer.lobbyId).forEach((p) => {
 
