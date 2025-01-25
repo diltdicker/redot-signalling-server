@@ -207,6 +207,7 @@ function unwrapMessage(rawMessage) {
  * @param {User} peer 
  */
 function handleMessage(rawMessage, peer) {
+    log.info(rawMessage);
     const {protocol, data} = unwrapMessage(rawMessage);
 
     if (protocol == PROTO.ID) {
@@ -548,6 +549,6 @@ let pingIntervalId = setInterval(() => {
 let memIntervalId = setInterval(() => {
     for (const [key,value] of Object.entries(process.memoryUsage())) {
         log.info(`Memory usage by ${key}, ${Math.floor(value/1_000)/1_000} MB`);    // log memory usage statistics
-        log.info(JSON.stringify(LOBBIES_LIST));
+        log.info(`lobbies: ${LOBBIES_LIST.map((l) => l.lobbyCode).join(',')}`);
     }
 }, MEM_CHECK_INTERVAL);
