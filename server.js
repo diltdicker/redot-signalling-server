@@ -1,3 +1,13 @@
+/**
+ * Redot-Signalling-Server
+ * 
+ * Lightweight websocket server for setting peer-to-peer WebRTC connections for Godot/Redot Games.
+ * Supports: public lobbies, private lobbies, automatic queues.
+ * 
+ * @author diltdicker
+ * @license MIT
+ */
+
 import { WebSocketServer } from 'ws';
 import log from 'loglevel';
 import {toBb26, toDecimal} from 'bb26';
@@ -68,8 +78,9 @@ const UNKOWN_PEER = [4003, 'Unknown peer'];
  * @returns 6 character string representing the lobby code
  */
 function generateLobbyCode() {
-    let randNum = Math.floor(Math.random() * (toDecimal('AAAAAAA') - toDecimal('AAAAAA')) - toDecimal('AAAAAA'));
-    return toBb26(Math.abs(randNum));
+    let randNum = Math.floor(Math.random() * (toDecimal('AAAAAAA') - toDecimal('AAAAAA'))) + toDecimal('AAAAAA');
+    let code = toBb26(Math.abs(randNum));
+    return code;
 }
 
 function cancelTimeout(timeoutId) {
@@ -278,6 +289,8 @@ function handleMessage(rawMessage, peer) {
         const maxPeers = typeof data['maxPeers'] === 'number' ? Math.floor(data['maxPeers']) : -1;
         const tags = data['tags'] || null;
         const isMesh = data['isMesh'] || true;
+        log.info(rawMessage);
+        log.info(game,maxPeers,tags,isMesh)
         if (game == null || maxPeers == -1) {
             sendMessage(peer.socket, PROTO.ERR, {code: BAD_QUEUE[0], reason: BAD_QUEUE[1]});
             return;
