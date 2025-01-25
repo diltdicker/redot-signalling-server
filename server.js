@@ -262,7 +262,7 @@ function handleMessage(rawMessage, peer) {
                 lobby.peerList.push(peer);
                 sendMessage(peer.socket, PROTO.JOIN, {id: peer.lobbyId, isMesh: lobby.isMesh, lobbyCode: lobby.lobbyCode});         // lobby found :)
                 lobby.peerList.filter((p) => p.lobbyId != peer.lobbyId).forEach((p) => {
-
+                    log.info('this is working???');
                     setImmediate(() => {    // setImmediate to provide a tiny delay & not hog the I/O
                         log.info(`what is p: ${p.lobbyId} what is peer: ${peer.lobbyId}`)
                         sendMessage(p.socket, PROTO.ADD, {peerId: peer.lobbyId});        // inform other peers of new user
