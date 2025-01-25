@@ -121,6 +121,7 @@ class Lobby {
             });
             this.peerList = [];
             LOBBIES_LIST = LOBBIES_LIST.filter((l) => {l.lobbyCode === this.lobbyCode});
+            log.info(`deleting idle lobby: ${this.lobbyCode}}`);
             cancelInterval(this.queueIntervalId);
         }, 1_000 * 60 * 10);
 
@@ -229,6 +230,7 @@ function handleMessage(rawMessage, peer) {
             peer.isHost = true;
             peer.lobbyId = 1;
             let lobby = new Lobby(game, lobbyType, maxPeers, isMesh, tags);
+            log.info(`lobby created: ${lobby.lobbyCode} for game: ${game}`);
             peer.lobby = lobby;
             LOBBIES_LIST.push(lobby);
             sendMessage(peer.socket, PROTO.HOST, {id: peer.lobbyId, lobbyCode: lobby.lobbyCode, isMesh: isMesh});
@@ -299,6 +301,7 @@ function handleMessage(rawMessage, peer) {
             peer.lobbyId = 1;
             peer.isHost = true;
             let lobby = new Lobby(game, LOBBY_TYPE.QUEUE, maxPeers, isMesh, tags);
+            log.info(`lobby created: ${lobby.lobbyCode} for game: ${game}`);
 
             sendMessage(peer.socket, PROTO.QUEUE, {id: peer.lobbyId, lobbyCode: lobby.lobbyCode, isMesh: isMesh});
         }
@@ -490,6 +493,7 @@ SERVER.on('connection', (socket) => {
                     peer.lobby.peerList.forEach((p) => {p.lobby = null})
                     lobby.peerList = [];
                     LOBBIES_LIST = LOBBIES_LIST.filter((l) => {l.lobbyCode === lobby.lobbyCode});
+                    log.info(`deleting lobby: ${lobby.lobbyCode}}`);
                     lobby = null;
                     peer.lobby = null;
                     peerList.forEach((p) => {
@@ -514,6 +518,7 @@ SERVER.on('connection', (socket) => {
                 peer.lobby.peerList.forEach((p) => {p.lobby = null})
                 lobby.peerList = [];
                 LOBBIES_LIST = LOBBIES_LIST.filter((l) => {l.lobbyCode === lobby.lobbyCode});
+                log.info(`deleting lobby: ${lobby.lobbyCode}}`);
                 lobby = null;
                 peer.lobby = null;
             }
