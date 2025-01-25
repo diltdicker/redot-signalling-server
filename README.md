@@ -1,13 +1,15 @@
 # Redot/Godot Signalling Server
 
+<img src="addons/gaming_rtc/gaming_rtc_icon.svg" alt="GamingRTC" width="200"/>
+
 ## Features
 
-Singalling server features: hosting multiple different game profiles,
+Signalling server features: hosting multiple different game profiles,
 private lobbies, public lobbies, and automatic queues for multiplayer.
 
 ## Instructions:
 
-Run server on hosted platform (e.g. heroku) and note the web address.
+Run `server.js` on hosted platform (e.g. heroku) and note the web address.
 
 In Godot/Redot copy the `addons` folder to project directory and enable the plugin.
 Use the custom node `PeerToPeerMultiplayer` to setup your RTC connections. Url to
