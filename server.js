@@ -175,7 +175,7 @@ class User {
  * @returns stringified 
  */
 function sendMessage(socket, protocol, data = {}) {
-    log.debug(`packing message | call: ${protocol}, data: ${JSON.stringify(data)}}`);
+    log.info(`sending message | call: ${protocol}, data: ${JSON.stringify(data)}}`);
     socket.send(JSON.stringify({
         'call': protocol,
         'data': data
@@ -551,8 +551,8 @@ let pingIntervalId = setInterval(() => {
 }, PING_INTERVAL);
 
 let memIntervalId = setInterval(() => {
+    log.info(`lobbies: ${LOBBIES_LIST.map((l) => l.lobbyCode).join(',')}`);
     for (const [key,value] of Object.entries(process.memoryUsage())) {
         log.info(`Memory usage by ${key}, ${Math.floor(value/1_000)/1_000} MB`);    // log memory usage statistics
-        log.info(`lobbies: ${LOBBIES_LIST.map((l) => l.lobbyCode).join(',')}`);
     }
 }, MEM_CHECK_INTERVAL);
