@@ -264,9 +264,9 @@ function handleMessage(rawMessage, peer) {
                 lobby.peerList.filter((p) => p.lobbyId != peer.lobbyId).forEach((p) => {
 
                     setImmediate(() => {    // setImmediate to provide a tiny delay & not hog the I/O
-
-                       sendMessage(p.socket, PROTO.ADD, {peerId: peer.lobbyId});        // inform other peers of new user
-                       sendMessage(peer.socket, PROTO.ADD, {peerId: p.lobbyId});        // inform new user of other peers
+                        log.info(`what is p: ${p.lobbyId} what is peer: ${peer.lobbyId}`)
+                        sendMessage(p.socket, PROTO.ADD, {peerId: peer.lobbyId});        // inform other peers of new user
+                        sendMessage(peer.socket, PROTO.ADD, {peerId: p.lobbyId});        // inform new user of other peers
                     });
                 });
             }
