@@ -318,14 +318,11 @@ function handleMessage(rawMessage, peer) {
                 });
             });
 
-            log.info(lobby.maxPeers == lobby.peerList.length && lobby.isActiv)
             if (lobby.maxPeers == lobby.peerList.length && lobby.isActive) {
-                log.info('testing')
                 setTimeout(() => {
                     let host = lobby.peerList.find((p) => p.isHost);
-                    log.info(host.lobbyId)
                     sendMessage(host.socket, PROTO.READY, {id: null, peerCount: null, status: null});  // tell host to check if everyone is ready to start
-                }, 1_000);
+                }, 2_000);
             }
             
 
