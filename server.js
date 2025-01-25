@@ -115,19 +115,6 @@ class Lobby {
         this.game = game;
         this.tags = tags;
         this.isActive = true;
-        this.queueIntervalId = null
-
-        // if (this.lobbyType == LOBBY_TYPE.QUEUE) {
-        //     this.queueIntervalId = setInterval(() => {
-        //         if (this.maxPeers == this.peerList.length && this.isActive) {
-        //             let host = this.peerList.find((p) => p.isHost);
-        //             cancelInterval(this.queueIntervalId);
-        //             setTimeout(() => {
-        //                 sendMessage(host.socket, PROTO.READY, {id: null, peerCount: null, status: null});  // tell host to check if everyone is ready to start
-        //             }, 500);
-        //         }
-        //     }, 1_000 * 10);     // check every 10 seconds if lobby is full and ready to start (queue type only)
-        // }
 
         this.lobbyTimeoutId = setTimeout(() => {
             this.peerList.forEach((p) => {
@@ -137,7 +124,6 @@ class Lobby {
             this.peerList = [];
             LOBBIES_LIST = LOBBIES_LIST.filter((l) => {l.lobbyCode === this.lobbyCode});
             log.info(`deleting idle lobby: ${this.lobbyCode}}`);
-            cancelInterval(this.queueIntervalId);
         }, 1_000 * 60 * 10);
 
     }
@@ -389,7 +375,6 @@ function handleMessage(rawMessage, peer) {
             lobby.peerList = [];
             peer.lobby = null;
             LOBBIES_LIST = LOBBIES_LIST.filter((l) => l.lobbyCode != lobby.lobbyCode);      // delete lobby
-            cancelInterval(lobby.queueIntervalId);
             cancelTimeout(lobby.timeoutId);
 
         } else if (peer.isHost && peer.lobbyId != id) { // host is kickig player
@@ -432,7 +417,6 @@ function handleMessage(rawMessage, peer) {
             sendMessage(peer.socket, PROTO.ERR, {code: BAD_MESSAGE[0], reason: BAD_MESSAGE[1]});
             return;
         }
-        log.info(peer.lobby.peerList);
         let toPeer = peer.lobby.peerList.find((p) => p.lobbyId == toId) || null;
         if (toPeer == null) {
             sendMessage(peer.socket, PROTO.ERR, {code: UNKNOWN_ERR[0], reason: UNKNOWN_ERR[1]});
@@ -539,11 +523,10 @@ SERVER.on('connection', (socket) => {
                     
                     let peerList = peer.lobby.peerList;
                     let lobby = peer.lobby;
-                    cancelInterval(lobby.queueIntervalId);
                     peer.lobby.peerList.forEach((p) => {p.lobby = null})
                     lobby.peerList = [];
                     LOBBIES_LIST = LOBBIES_LIST.filter((l) => {l.lobbyCode === lobby.lobbyCode});
-                    log.info(`deleting lobby: ${lobby.lobbyCode}}`);
+                    log.info(`deleting lobby: ${lobby.lobbyCode}`);
                     lobby = null;
                     peer.lobby = null;
                     peerList.forEach((p) => {
@@ -567,7 +550,6 @@ SERVER.on('connection', (socket) => {
             } else if (peer.lobby != null && !peer.lobby.isActive && peer.isHost) {
                 // host disconnects to start game
                 let lobby = peer.lobby;
-                cancelInterval(lobby.queueIntervalId);
                 peer.lobby.peerList.forEach((p) => {p.lobby = null})
                 lobby.peerList = [];
                 LOBBIES_LIST = LOBBIES_LIST.filter((l) => {l.lobbyCode === lobby.lobbyCode});
