@@ -153,11 +153,13 @@ class User {
 
         this.earlyTimeoutId = setTimeout(() => {
             if (this.game == null) {
+                log.debug(`early timeout for peer: ${this.id}`);
                 socket.close(...IDLE_SOCKET_CONN);
             }
         }, 1_000 * 10);         // auto-disconnect after 10 seconds
 
         this.longTimeoutId = setTimeout(() => { 
+            log.debug(`long timeout for peer: ${this.id}`);
             this.socket.close(...IDLE_SOCKET_CONN);
         }, 1_000 * 60 * 30);    // auto-disconnect after 30 minutes
     }
@@ -214,7 +216,10 @@ function handleMessage(rawMessage, peer) {
         const game = data['game'] || null;
         if (game == null) {
             peer.socket.close(...UNKOWN_PEER);
+        } else {
+            peer.game = game;
         }
+
     } else if (protocol == PROTO.HOST) {
         /**
          * 
@@ -235,7 +240,6 @@ function handleMessage(rawMessage, peer) {
             LOBBIES_LIST.push(lobby);
             sendMessage(peer.socket, PROTO.HOST, {id: peer.lobbyId, lobbyCode: lobby.lobbyCode, isMesh: isMesh});
         }
-
 
     } else if (protocol == PROTO.JOIN) {
         /**
@@ -544,6 +548,6 @@ let pingIntervalId = setInterval(() => {
 let memIntervalId = setInterval(() => {
     for (const [key,value] of Object.entries(process.memoryUsage())) {
         log.info(`Memory usage by ${key}, ${Math.floor(value/1_000)/1_000} MB`);    // log memory usage statistics
-        log.debug(JSON.stringify(LOBBIES_LIST));
+        log.info(JSON.stringify(LOBBIES_LIST));
     }
 }, MEM_CHECK_INTERVAL);
