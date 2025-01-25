@@ -429,13 +429,13 @@ function handleMessage(rawMessage, peer) {
             if (id == null) {
                 peer.lobby.peerList.filter((p) => !p.isHost).forEach((p) => {
                     setTimeout(() => {
-                        sendMessage(p.socket, PROTO.READY, {id: p.lobbyId, peerCount: peer.lobby.length - 1, status: null});
+                        sendMessage(p.socket, PROTO.READY, {id: p.lobbyId, peerCount: peer.lobby.peerList.length - 1, status: null});
                     }, 1_000);  // slight delay to allow user to finish connecting
                 });
             } else {
                 let latePeer = peer.lobby.peerList.find((p) => p.lobbyId == id);
                 setTimeout(() => {
-                    sendMessage(latePeer.socket, PROTO.READY, {id: latePeer.lobbyId, peerCount: peer.lobby.length - 1, status: null});
+                    sendMessage(latePeer.socket, PROTO.READY, {id: latePeer.lobbyId, peerCount: peer.lobby.peerList.length - 1, status: null});
                 }, 1_000);  // slight delay to allow user to finish connecting
             }
         } else {    // if message is from non-host -> send to host
@@ -447,13 +447,19 @@ function handleMessage(rawMessage, peer) {
         /**
          * 
          */
-        peer.lobby.isActive = false;
-        peer.lobby.peerList.filter((p) => !p.isHost).forEach((p) => { // get all non-host peers
-            sendMessage(p.socket, PROTO.START);
-            p.socket.close(...START_GAME);
-        });
-        sendMessage(peer.socket, PROTO.START);
-        peer.socket.close(...START_GAME);   // finally close host connection
+        if (peer.isHost) {
+            peer.lobby.isActive = false;
+            peer.lobby.peerList.filter((p) => !p.isHost).forEach((p) => { // get all non-host peers
+                sendMessage(p.socket, PROTO.START);
+                setTimeout(() => {
+                    p.socket.close(...START_GAME);
+                }, 250);
+            });
+            sendMessage(peer.socket, PROTO.START);
+            setTimeout(() => {
+                peer.socket.close(...START_GAME);   // finally close host connection
+            }, 250); 
+        }
     
     } else {
         sendMessage(peer.socket, PROTO.ERR, {code: BAD_PROTO[0], reason: BAD_PROTO[1]});
