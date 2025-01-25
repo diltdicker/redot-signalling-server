@@ -318,7 +318,7 @@ function handleMessage(rawMessage, peer) {
                 });
             });
 
-            if (this.maxPeers == this.peerList.length && this.isActive) {
+            if (lobby.maxPeers == lobby.peerList.length && lobby.isActive) {
                 setTimeout(() => {
                     let host = lobby.peerList.find((p) => p.isHost);
                     sendMessage(host.socket, PROTO.READY, {id: null, peerCount: null, status: null});  // tell host to check if everyone is ready to start
