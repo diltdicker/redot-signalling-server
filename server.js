@@ -237,6 +237,7 @@ function handleMessage(rawMessage, peer) {
             peer.isHost = true;
             peer.lobbyId = 1;
             let lobby = new Lobby(game, lobbyType, maxPeers, isMesh, tags);
+            lobby.peerList.push(peer.lobbyId);
             log.info(`lobby created: ${lobby.lobbyCode} for game: ${game}`);
             peer.lobby = lobby;
             LOBBIES_LIST.push(lobby);
@@ -307,6 +308,7 @@ function handleMessage(rawMessage, peer) {
             peer.lobbyId = 1;
             peer.isHost = true;
             let lobby = new Lobby(game, LOBBY_TYPE.QUEUE, maxPeers, isMesh, tags);
+            lobby.peerList.push(peer.lobbyId);
             log.info(`queue lobby created: ${lobby.lobbyCode} for game: ${game}`);
 
             sendMessage(peer.socket, PROTO.QUEUE, {id: peer.lobbyId, lobbyCode: lobby.lobbyCode, isMesh: isMesh, isHost: peer.isHost});
