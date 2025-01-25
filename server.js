@@ -287,7 +287,7 @@ function handleMessage(rawMessage, peer) {
          */
         const game = data['game'] || null;
         const maxPeers = typeof data['maxPeers'] === 'number' ? Math.floor(data['maxPeers']) : -1;
-        const tags = data['tags'] || null;
+        const tags = data['tags'] || "";
         const isMesh = data['isMesh'] || true;
         log.info(rawMessage);
         log.info(`game: "${game}", maxPeers: "${maxPeers}", tags: "${tags}", isMesh: "${isMesh}"`);
@@ -325,7 +325,7 @@ function handleMessage(rawMessage, peer) {
             let lobby = new Lobby(game, LOBBY_TYPE.QUEUE, maxPeers, isMesh, tags);
             lobby.peerList.push(peer);
             log.info(`queue lobby created: ${lobby.lobbyCode} for game: ${game}`);
-
+            LOBBIES_LIST.push(lobby);
             sendMessage(peer.socket, PROTO.QUEUE, {id: peer.lobbyId, lobbyCode: lobby.lobbyCode, isMesh: isMesh, isHost: peer.isHost});
         }
 
