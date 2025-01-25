@@ -301,9 +301,9 @@ function handleMessage(rawMessage, peer) {
             peer.lobbyId = 1;
             peer.isHost = true;
             let lobby = new Lobby(game, LOBBY_TYPE.QUEUE, maxPeers, isMesh, tags);
-            log.info(`lobby created: ${lobby.lobbyCode} for game: ${game}`);
+            log.info(`queue lobby created: ${lobby.lobbyCode} for game: ${game}`);
 
-            sendMessage(peer.socket, PROTO.QUEUE, {id: peer.lobbyId, lobbyCode: lobby.lobbyCode, isMesh: isMesh});
+            sendMessage(peer.socket, PROTO.QUEUE, {id: peer.lobbyId, lobbyCode: lobby.lobbyCode, isMesh: isMesh, isHost: peer.isHost});
         }
 
     } else if (protocol == PROTO.VIEW) {
@@ -544,5 +544,6 @@ let pingIntervalId = setInterval(() => {
 let memIntervalId = setInterval(() => {
     for (const [key,value] of Object.entries(process.memoryUsage())) {
         log.info(`Memory usage by ${key}, ${Math.floor(value/1_000)/1_000} MB`);    // log memory usage statistics
+        log.debug(JSON.stringify(LOBBIES_LIST));
     }
 }, MEM_CHECK_INTERVAL);
