@@ -391,7 +391,7 @@ function handleMessage(rawMessage, peer) {
         /**
          * 
          */
-        const toId = typeof data['toId'] === 'number' ? data['index'] : null;
+        const toId = typeof data['toId'] === 'number' ? data['toId'] : null;
         const offer = data['offer'] || null;
         const answer = data['answer'] || null;
         const media = data['media'] || null;
@@ -402,7 +402,10 @@ function handleMessage(rawMessage, peer) {
             return;
         }
 
+        log.info(toId)
+        log.info(peer.lobby.peerList.map(p => p.lobbyId))
         let toPeer = peer.lobby.peerList.find((p) => p.lobbyId == toId);
+        log.info(toPeer);
 
         if (protocol == PROTO.OFFER) {
             // OFFER
