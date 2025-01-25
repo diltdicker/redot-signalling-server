@@ -68,7 +68,9 @@ const UNKOWN_PEER = [4003, 'Unknown peer'];
  * @returns 6 character string representing the lobby code
  */
 function generateLobbyCode() {
-    return toBb26(Math.floor(Math.random() * (Math.pow(26, 6) - Math.pow(26, 5))) - Math.pow(26, 5));
+    let randNum = Math.floor(Math.random() * (Math.pow(26, 6) - Math.pow(26, 5)))  - Math.pow(26, 5);
+    log.info(`randomly generated num: ${randNum}`);
+    return toBb26(Math.floor(randNum));
 }
 
 function cancelTimeOut(timeoutId) {
@@ -452,6 +454,9 @@ function handleMessage(rawMessage, peer) {
         sendMessage(peer.socket, PROTO.ERR, {code: BAD_PROTO[0], reason: BAD_PROTO[1]});
     }
 }
+
+
+generateLobbyCode(); // throwaway to ensure lib is loaded
 
 // RUN WEBSOCKET SERVER
 log.info(`starting websocket server on port: ${PORT}`);
