@@ -1,6 +1,6 @@
 import { WebSocketServer } from 'ws';
 import log from 'loglevel';
-import {toBb26} from 'bb26';
+import {toBb26, toDecimal} from 'bb26';
 
 // SETUP LOGGING FORMAT AND LEVEL
 let originalFactory = log.methodFactory;
@@ -68,9 +68,8 @@ const UNKOWN_PEER = [4003, 'Unknown peer'];
  * @returns 6 character string representing the lobby code
  */
 function generateLobbyCode() {
-    let randNum = Math.floor(Math.random() * (Math.pow(26, 6) - Math.pow(26, 5)))  - Math.pow(26, 5);
-    log.info(`randomly generated num: ${randNum}`);
-    return toBb26(Math.floor(randNum));
+    let randNum = Math.floor(Math.random() * (toDecimal('AAAAAAA') - toDecimal('AAAAAA')) - toDecimal('AAAAAA'));
+    return toBb26(Math.abs(randNum));
 }
 
 function cancelTimeOut(timeoutId) {
