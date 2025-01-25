@@ -50,7 +50,7 @@ const LOBBY_TYPE = {
 }
 
 // ERROR CODES
-const START_GAME = [1000, 'Closing host connection to start game'];
+const START_GAME = [1000, 'Closing peer connection to start game'];
 const TOO_MANY_PEERS = [4029, 'Too many peers connected Server busy'];
 const BAD_PROTO = [4005, 'Recieved invalid message with unknown protocol'];
 const BAD_MESSAGE = [4022, 'Received bad message Unable to process'];
@@ -208,7 +208,6 @@ function unwrapMessage(rawMessage) {
  * @param {User} peer 
  */
 function handleMessage(rawMessage, peer) {
-    log.info(rawMessage);
     const {protocol, data} = unwrapMessage(rawMessage);
 
     if (protocol == PROTO.ID) {
