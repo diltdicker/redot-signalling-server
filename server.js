@@ -121,7 +121,10 @@ class Lobby {
             this.queueIntervalId = setInterval(() => {
                 if (this.maxPeers == this.peerList.length && this.isActive) {
                     let host = this.peerList.find((p) => p.isHost);
-                    sendMessage(host.socket, PROTO.READY, {id: null, peerCount: null, status: null});  // tell host to check if everyone is ready to start
+                    cancelInterval(this.queueIntervalId);
+                    setTimeout(() => {
+                        sendMessage(host.socket, PROTO.READY, {id: null, peerCount: null, status: null});  // tell host to check if everyone is ready to start
+                    }, 1_000)
                 }
             }, 1_000 * 10);     // check every 10 seconds if lobby is full and ready to start (queue type only)
         }
@@ -298,7 +301,7 @@ function handleMessage(rawMessage, peer) {
 
         // CHECK IF LOBBY EXISTS
         LOBBIES_LIST.forEach((l) => {
-            log.info(`game: "${l.game}", maxPeers: "${l.maxPeers}", tags: "${l.tags}", isMesh: "${l.peerList.length}" lobbyType: ${l.lobbyType == LOBBY_TYPE.QUEUE}`);
+            log.info(`game: "${l.game}", maxPeers: "${l.maxPeers}", tags: "${l.tags}", peerListLength: "${l.peerList.length}" lobbyType: ${l.lobbyType == LOBBY_TYPE.QUEUE}`);
         });
         let lobbyList = LOBBIES_LIST.filter((l) => l.game === game && 
             l.lobbyType == LOBBY_TYPE.QUEUE && l.isActive && l.maxPeers == maxPeers && l.tags === tags && l.peerList.length < l.maxPeers);
@@ -309,6 +312,7 @@ function handleMessage(rawMessage, peer) {
             let lobby = lobbyList[0];
             peer.lobby = lobby;
             lobby.peerList.push(peer);
+            log.info(`peerListLength: ${lobby.peerList.length}`);
             log.info(`peer: ${peer.id} joined queue: ${lobby.lobbyCode} for game: ${game}`);
             sendMessage(peer.socket, PROTO.QUEUE, {id: peer.lobbyId, isMesh: lobby.isMesh, lobbyCode: lobby.lobbyCode, isHost: peer.isHost});
             lobby.peerList.filter((p) => p.lobbyId != peer.lobbyId).forEach((p) => {
@@ -324,6 +328,7 @@ function handleMessage(rawMessage, peer) {
             peer.isHost = true;
             let lobby = new Lobby(game, LOBBY_TYPE.QUEUE, maxPeers, isMesh, tags);
             lobby.peerList.push(peer);
+            log.info(`peerListLength: ${lobby.peerList.length}`);
             log.info(`queue lobby created: ${lobby.lobbyCode} for game: ${game}`);
             LOBBIES_LIST.push(lobby);
             sendMessage(peer.socket, PROTO.QUEUE, {id: peer.lobbyId, lobbyCode: lobby.lobbyCode, isMesh: isMesh, isHost: peer.isHost});
@@ -425,7 +430,12 @@ function handleMessage(rawMessage, peer) {
             sendMessage(peer.socket, PROTO.ERR, {code: BAD_MESSAGE[0], reason: BAD_MESSAGE[1]});
             return;
         }
-        let toPeer = peer.lobby.peerList.find((p) => p.lobbyId == toId);
+        log.info(peer.lobby.peerList);
+        let toPeer = peer.lobby.peerList.find((p) => p.lobbyId == toId) || null;
+        if (toPeer == null) {
+            sendMessage(peer.socket, PROTO.ERR, {code: UNKNOWN_ERR[0], reason: UNKNOWN_ERR[1]});
+            return;
+        }
 
         if (protocol == PROTO.OFFER) {
             // OFFER
