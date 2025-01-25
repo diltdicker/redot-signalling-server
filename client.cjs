@@ -1,7 +1,7 @@
 const WebSocket = require('ws');
 console.log("testing client")
 
-var ws = new WebSocket("ws://cryptic-sierra-00220-d4f9a082c462.herokuapp.com");
+var ws = new WebSocket("ws://localhost:8080");
 
 ws.onmessage = function (event) {
     console.log(event)

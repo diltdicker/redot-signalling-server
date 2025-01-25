@@ -19,8 +19,8 @@ log.setLevel( IS_PROD ? log.levels.INFO : log.levels.DEBUG)
 const PORT = process.env.PORT || 8080;
 const SERVER = new WebSocketServer({ port: PORT});
 const PING_INTERVAL = 10000; // web socket ping for all connected clients every 10s
-const MEM_CHECK_INTERVAL = 1_000 * 60   // nodejs memory usage logs every 1 minute
-const MAX_CONNS = 4096;
+const MEM_CHECK_INTERVAL = 1_000 * 60 * 2   // nodejs memory usage logs every 2 minutes
+const MAX_CONNS = 4096;     // maximum number of simultaneous connections to server
 
 // MODIFIABLES
 let CUR_PEER_CNT = 0;   // CURRENT PEER COUNT (connection count)
@@ -50,18 +50,18 @@ const LOBBY_TYPE = {
 }
 
 // ERROR CODES
-const START_GAME = [4000, 'Closing host connection to start game'];
-const TOO_MANY_PEERS = [4001, 'Too many peers connected Server busy'];
-const BAD_PROTO = [4002, 'Recieved invalid message with unknown protocol'];
-const BAD_MESSAGE = [4003, 'Received bad message Unable to process'];
+const START_GAME = [1000, 'Closing host connection to start game'];
+const TOO_MANY_PEERS = [4029, 'Too many peers connected Server busy'];
+const BAD_PROTO = [4005, 'Recieved invalid message with unknown protocol'];
+const BAD_MESSAGE = [4022, 'Received bad message Unable to process'];
 const LOBBY_NOT_FOUND = [4004, 'Lobby for given lobbyCode does not exist'];
-const BAD_VIEW = [4005, 'Invalid settings for viewing lobby'];
-const BAD_HOST = [4006, 'Invalid settings for hosting lobby'];
-const BAD_JOIN = [4007, 'Invalid message for joining lobby'];
-const BAD_QUEUE = [4008, 'Inavlid message for queueing'];
-const IDLE_SOCKET_CONN = [4009, 'Idle socket connection for too long'];
-const UNKNOWN_ERR = [4010, 'Unknown error'];
-const UNKOWN_PEER = [4011, 'Unknown peer'];
+const BAD_VIEW = [4000, 'Invalid message for viewing lobby'];
+const BAD_HOST = [4006, 'Invalid message for hosting lobby'];
+const BAD_JOIN = [4001, 'Invalid message for joining lobby'];
+const BAD_QUEUE = [4010, 'Inavlid message for queueing'];
+const IDLE_SOCKET_CONN = [4008, 'Idle socket connection for too long'];
+const UNKNOWN_ERR = [4017, 'Unknown error'];
+const UNKOWN_PEER = [4003, 'Unknown peer'];
 
 /**
  * Generates a random lobby code
@@ -69,6 +69,18 @@ const UNKOWN_PEER = [4011, 'Unknown peer'];
  */
 function generateLobbyCode() {
     return toBb26(Math.floor(Math.random() * (Math.pow(26, 6) - Math.pow(26, 5))) - Math.pow(26, 5));
+}
+
+function cancelTimeOut(timeoutId) {
+    if (timeoutId) {
+        clearTimeout(timeoutId);
+    }
+}
+
+function cancelInterval(intervalId) {
+    if (intervalId) {
+        clearInterval(intervalId);
+    }
 }
 
 /**
@@ -91,16 +103,27 @@ class Lobby {
         this.game = game;
         this.tags = tags;
         this.isActive = true;
-        this.interval = null
+        this.queueIntervalId = null
 
         if (this.lobbyType == LOBBY_TYPE.QUEUE) {
-            this.interval = setInterval(() => {
+            this.queueIntervalId = setInterval(() => {
                 if (this.maxPeers == this.peerList.length && this.isActive) {
                     let host = this.peerList.find((p) => p.isHost);
                     sendMessage(host.socket, PROTO.READY, {id: null, peerCount: null, status: null});  // tell host to check if everyone is ready to start
                 }
             }, 1_000 * 10);     // check every 10 seconds if lobby is full and ready to start (queue type only)
         }
+
+        this.lobbyTimeoutId = setTimeout(() => {
+            this.peerList.forEach((p) => {
+                p.lobby = null
+                sendMessage(p.socket, PROTO.KICK, {id: host.lobbyId, lobbyAlive: false});   // server auto kicks all peers from lobby after 10 minutes
+            });
+            this.peerList = [];
+            LOBBIES_LIST = LOBBIES_LIST.filter((l) => {l.lobbyCode === this.lobbyCode});
+            cancelInterval(this.queueIntervalId);
+        }, 1_000 * 60 * 10);
+
     }
 
     /**
@@ -127,15 +150,15 @@ class User {
         this.socket = socket;
         this.game = null;
 
-        setTimeout(() => {
+        this.earlyTimeoutId = setTimeout(() => {
             if (this.game == null) {
                 socket.close(...IDLE_SOCKET_CONN);
             }
         }, 1_000 * 10);         // auto-disconnect after 10 seconds
 
-        setTimeout(() => { 
+        this.longTimeoutId = setTimeout(() => { 
             this.socket.close(...IDLE_SOCKET_CONN);
-        }, 1_000 * 60 * 60);    // auto-disconnect after 1 hour
+        }, 1_000 * 60 * 30);    // auto-disconnect after 30 minutes
     }
 
 }
@@ -263,7 +286,7 @@ function handleMessage(rawMessage, peer) {
             peer.isHost = false;
             let lobby = lobbyList[0];
             peer.lobby = lobby;
-            sendMessage(peer.socket, PROTO.QUEUE, {id: peer.lobbyId, isMesh: lobby.isMesh, lobbyCode: lobby.lobbyCode});
+            sendMessage(peer.socket, PROTO.QUEUE, {id: peer.lobbyId, isMesh: lobby.isMesh, lobbyCode: lobby.lobbyCode, isHost: peer.isHost});
             lobby.peerList.filter((p) => p.lobbyId != peer.lobbyId).forEach((p) => {
 
                 setImmediate(() => {    // setImmediate to provide a tiny delay & not hog the I/O
@@ -295,7 +318,7 @@ function handleMessage(rawMessage, peer) {
         if (lobbyCode != null) {
             lobbyList = LOBBIES_LIST.filter((l) => l.lobbyCode == lobbyCode);
         } else {
-            lobbyList = LOBBIES_LIST.filter((l) => game === l.game && l.isActive && l.peerList.length < l.maxPeers && l.lobbyType != LOBBY_TYPE.PRIVATE);
+            lobbyList = LOBBIES_LIST.filter((l) => game === l.game && l.isActive && l.peerList.length < l.maxPeers && l.lobbyType == LOBBY_TYPE.PUBLIC);
         }
         lobbyList = lobbyList.map((l) => {
             return {
@@ -387,11 +410,19 @@ function handleMessage(rawMessage, peer) {
          */
         if (peer.isHost) {    // if message is from host -> send to other peers
             peer.lobby.isActive = false;
-            peer.lobby.peerList.filter((p) => !p.isHost).forEach((p) => {
-                setImmediate(() => {
-                    sendMessage(p.socket, PROTO.READY, {id: p.lobbyId, peerCount: peer.lobby.length - 1, status: null});
+            let id = data['id'] || null;
+            if (id == null) {
+                peer.lobby.peerList.filter((p) => !p.isHost).forEach((p) => {
+                    setTimeout(() => {
+                        sendMessage(p.socket, PROTO.READY, {id: p.lobbyId, peerCount: peer.lobby.length - 1, status: null});
+                    }, 1_000);  // slight delay to allow user to finish connecting
                 });
-            });
+            } else {
+                let latePeer = peer.lobby.peerList.find((p) => p.lobbyId == id);
+                setTimeout(() => {
+                    sendMessage(latePeer.socket, PROTO.READY, {id: latePeer.lobbyId, peerCount: peer.lobby.length - 1, status: null});
+                }, 1_000);  // slight delay to allow user to finish connecting
+            }
         } else {    // if message is from non-host -> send to host
             let host = peer.lobby.peerList.find((p) => p.isHost);
             sendMessage(host.socket, PROTO.READY, data);
@@ -403,8 +434,10 @@ function handleMessage(rawMessage, peer) {
          */
         peer.lobby.isActive = false;
         peer.lobby.peerList.filter((p) => !p.isHost).forEach((p) => { // get all non-host peers
+            sendMessage(p.socket, PROTO.START);
             p.socket.close(...START_GAME);
         });
+        sendMessage(peer.socket, PROTO.START);
         peer.socket.close(...START_GAME);   // finally close host connection
     
     } else {
@@ -444,7 +477,7 @@ SERVER.on('connection', (socket) => {
          */
         CUR_PEER_CNT--;
         log.info(`peer: ${peer.id} disconnected from server [${code}]:${reason}`)
-
+        clearTimeout(peer.longTimeoutId);
         try {
             // logic for removing from lobbies
             if (peer.lobby != null && peer.lobby.isActive) {
@@ -453,6 +486,7 @@ SERVER.on('connection', (socket) => {
                     
                     let peerList = peer.lobby.peerList;
                     let lobby = peer.lobby;
+                    cancelInterval(lobby.queueIntervalId);
                     peer.lobby.peerList.forEach((p) => {p.lobby = null})
                     lobby.peerList = [];
                     LOBBIES_LIST = LOBBIES_LIST.filter((l) => {l.lobbyCode === lobby.lobbyCode});
@@ -476,6 +510,7 @@ SERVER.on('connection', (socket) => {
             } else if (peer.lobby != null && !peer.lobby.isActive && peer.isHost) {
                 // host disconnects to start game
                 let lobby = peer.lobby;
+                cancelInterval(lobby.queueIntervalId);
                 peer.lobby.peerList.forEach((p) => {p.lobby = null})
                 lobby.peerList = [];
                 LOBBIES_LIST = LOBBIES_LIST.filter((l) => {l.lobbyCode === lobby.lobbyCode});
@@ -494,15 +529,15 @@ SERVER.on('connection', (socket) => {
 
 });
 
-setInterval(() => {
+let pingIntervalId = setInterval(() => {
     log.debug(`server ping with (${CUR_PEER_CNT}/${MAX_CONNS}) clients`);
     SERVER.clients.forEach((socket) => {
         socket.ping();
     });
 }, PING_INTERVAL);
 
-setInterval(() => {
+let memIntervalId = setInterval(() => {
     for (const [key,value] of Object.entries(process.memoryUsage())) {
-        log.info(`Memory usage by ${key}, ${Math.floor(value/1_000)/1_000} MB`);
+        log.info(`Memory usage by ${key}, ${Math.floor(value/1_000)/1_000} MB`);    // log memory usage statistics
     }
 }, MEM_CHECK_INTERVAL);
