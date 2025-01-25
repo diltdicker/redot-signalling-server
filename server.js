@@ -332,6 +332,7 @@ function handleMessage(rawMessage, peer) {
             peer.isHost = true;
             let lobby = new Lobby(game, LOBBY_TYPE.QUEUE, maxPeers, isMesh, tags);
             lobby.peerList.push(peer);
+            peer.lobby = lobby;
             log.info(`peerListLength: ${lobby.peerList.length}`);
             log.info(`queue lobby created: ${lobby.lobbyCode} for game: ${game}`);
             LOBBIES_LIST.push(lobby);
