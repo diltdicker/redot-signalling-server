@@ -117,17 +117,17 @@ class Lobby {
         this.isActive = true;
         this.queueIntervalId = null
 
-        if (this.lobbyType == LOBBY_TYPE.QUEUE) {
-            this.queueIntervalId = setInterval(() => {
-                if (this.maxPeers == this.peerList.length && this.isActive) {
-                    let host = this.peerList.find((p) => p.isHost);
-                    cancelInterval(this.queueIntervalId);
-                    setTimeout(() => {
-                        sendMessage(host.socket, PROTO.READY, {id: null, peerCount: null, status: null});  // tell host to check if everyone is ready to start
-                    }, 500);
-                }
-            }, 1_000 * 10);     // check every 10 seconds if lobby is full and ready to start (queue type only)
-        }
+        // if (this.lobbyType == LOBBY_TYPE.QUEUE) {
+        //     this.queueIntervalId = setInterval(() => {
+        //         if (this.maxPeers == this.peerList.length && this.isActive) {
+        //             let host = this.peerList.find((p) => p.isHost);
+        //             cancelInterval(this.queueIntervalId);
+        //             setTimeout(() => {
+        //                 sendMessage(host.socket, PROTO.READY, {id: null, peerCount: null, status: null});  // tell host to check if everyone is ready to start
+        //             }, 500);
+        //         }
+        //     }, 1_000 * 10);     // check every 10 seconds if lobby is full and ready to start (queue type only)
+        // }
 
         this.lobbyTimeoutId = setTimeout(() => {
             this.peerList.forEach((p) => {
@@ -317,6 +317,15 @@ function handleMessage(rawMessage, peer) {
                    sendMessage(peer.socket, PROTO.ADD, {peerId: p.lobbyId});        // inform new user of other peers
                 });
             });
+
+            if (this.maxPeers == this.peerList.length && this.isActive) {
+                setTimeout(() => {
+                    let host = lobby.peerList.find((p) => p.isHost);
+                    sendMessage(host.socket, PROTO.READY, {id: null, peerCount: null, status: null});  // tell host to check if everyone is ready to start
+                }, 1_000);
+            }
+            
+
         } else {        // Lobby Queue not found -> creating lobby
             peer.lobbyId = 1;
             peer.isHost = true;
@@ -447,9 +456,9 @@ function handleMessage(rawMessage, peer) {
          * 
          */
         if (peer.isHost) {    // if message is from host -> send to other peers
-            peer.lobby.isActive = false;
             let id = data['id'] || null;
-            if (id == null) {
+            if (id == null && peer.lobby.isActive) {
+                peer.lobby.isActive = false;
                 peer.lobby.peerList.filter((p) => !p.isHost).forEach((p) => {
                     setTimeout(() => {
                         sendMessage(p.socket, PROTO.READY, {id: p.lobbyId, peerCount: peer.lobby.peerList.length - 1, status: null});
