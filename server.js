@@ -120,6 +120,9 @@ class Lobby {
         if (this.lobbyType == LOBBY_TYPE.QUEUE) {
             this.queueIntervalId = setInterval(() => {
                 if (this.maxPeers == this.peerList.length && this.isActive) {
+                    this.peerList.forEach((p) => {
+                        log.info(`${p.lobbyId} ${p.isHost}`)
+                    });
                     let host = this.peerList.find((p) => p.isHost);
                     cancelInterval(this.queueIntervalId);
                     setTimeout(() => {
@@ -189,7 +192,7 @@ class User {
  * @returns stringified 
  */
 function sendMessage(socket, protocol, data = {}) {
-    log.debug(`sending message | call: ${protocol}, data: ${JSON.stringify(data)}}`);
+    log.info(`sending message | call: ${protocol}, data: ${JSON.stringify(data)}}`);
     socket.send(JSON.stringify({
         'call': protocol,
         'data': data
@@ -203,6 +206,7 @@ function sendMessage(socket, protocol, data = {}) {
  * @returns object containing message
  */
 function unwrapMessage(rawMessage) {
+    log.info(rawMessage);
     let json = null;
         try {
             json = JSON.parse(rawMessage);
