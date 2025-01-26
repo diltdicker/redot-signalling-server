@@ -96,6 +96,16 @@ function cancelInterval(intervalId) {
 }
 
 /**
+ * Method to remove lobby from the master list
+ * @param {Lobby} badLobby 
+ */
+function removeLobby(badLobby) {
+    const loc = LOBBIES_LIST.indexOf(badLobby);
+    if (loc != -1);
+    LOBBIES_LIST.splice(loc, 1);    // delete lobby from array in-place
+}
+
+/**
  * 
  */
 class Lobby {
@@ -119,10 +129,14 @@ class Lobby {
         this.lobbyTimeoutId = setTimeout(() => {
             this.peerList.forEach((p) => {
                 p.lobby = null
-                sendMessage(p.socket, PROTO.KICK, {id: host.lobbyId, lobbyAlive: false});   // server auto kicks all peers from lobby after 10 minutes
+                try {
+                    sendMessage(p.socket, PROTO.KICK, {id: p.lobbyId, lobbyAlive: false});   // server auto kicks all peers from lobby after 10 minutes
+                } catch (err) {
+                    log.error(err);
+                }
             });
             this.peerList = [];
-            LOBBIES_LIST = LOBBIES_LIST.filter((l) => {l.lobbyCode === this.lobbyCode});
+            removeLobby(this);
             log.info(`deleting idle lobby: ${this.lobbyCode}}`);
         }, 1_000 * 60 * 10);
 
@@ -145,7 +159,7 @@ class User {
      * @param {WebSocket} socket 
      */
     constructor(socket) {
-        this.id = Math.floor(Math.random() * (2147483647 - 2) - 2);
+        this.id = Math.floor(Math.random() * (2147483647 - 2) + 2);
         this.lobbyId = this.id;
         this.isHost = false;
         this.lobby = null;
@@ -175,7 +189,7 @@ class User {
  * @returns stringified 
  */
 function sendMessage(socket, protocol, data = {}) {
-    log.info(`sending message | call: ${protocol}, data: ${JSON.stringify(data)}}`);
+    log.debug(`sending message | call: ${protocol}, data: ${JSON.stringify(data)}}`);
     socket.send(JSON.stringify({
         'call': protocol,
         'data': data
@@ -261,6 +275,7 @@ function handleMessage(rawMessage, peer) {
                 peer.lobbyId = peer.id;
                 peer.lobby = lobby;
                 lobby.peerList.push(peer);
+                log.info(`peer: ${peer.id} joined lobby: ${lobby.lobbyCode}`);
                 sendMessage(peer.socket, PROTO.JOIN, {id: peer.lobbyId, isMesh: lobby.isMesh, lobbyCode: lobby.lobbyCode});         // lobby found :)
                 lobby.peerList.filter((p) => p.lobbyId != peer.lobbyId).forEach((p) => {
                     setImmediate(() => {    // setImmediate to provide a tiny delay & not hog the I/O
@@ -294,20 +309,25 @@ function handleMessage(rawMessage, peer) {
             let lobby = lobbyList[0];
             peer.lobby = lobby;
             lobby.peerList.push(peer);
+            log.info(`peer: ${peer.id} joined queue: ${lobby.lobbyCode}`);
             sendMessage(peer.socket, PROTO.QUEUE, {id: peer.lobbyId, isMesh: lobby.isMesh, lobbyCode: lobby.lobbyCode, isHost: peer.isHost});
             lobby.peerList.filter((p) => p.lobbyId != peer.lobbyId).forEach((p) => {
 
                 setImmediate(() => {    // setImmediate to provide a tiny delay & not hog the I/O
-
-                   sendMessage(p.socket, PROTO.ADD, {peerId: peer.lobbyId});        // inform other peers of new user
-                   sendMessage(peer.socket, PROTO.ADD, {peerId: p.lobbyId});        // inform new user of other peers
+                    sendMessage(p.socket, PROTO.ADD, {peerId: peer.lobbyId});        // inform other peers of new user
+                    sendMessage(peer.socket, PROTO.ADD, {peerId: p.lobbyId});        // inform new user of other peers
                 });
             });
 
             if (lobby.maxPeers == lobby.peerList.length && lobby.isActive) {
+                let host = lobby.peerList.find((p) => p.isHost);
                 setTimeout(() => {
-                    let host = lobby.peerList.find((p) => p.isHost);
-                    sendMessage(host.socket, PROTO.READY, {id: null, peerCount: null, status: null});  // tell host to check if everyone is ready to start
+                    try {
+                        sendMessage(host.socket, PROTO.READY, {id: null, peerCount: null, status: null});  // tell host to check if everyone is ready to start
+                    } catch (err) {
+                        log.error(`unable to find host to send START signal for lobby: ${lobby.lobbyCode}`);
+                        log.error(err);
+                    }
                 }, 2_000);
             }
             
@@ -319,6 +339,7 @@ function handleMessage(rawMessage, peer) {
             lobby.peerList.push(peer);
             peer.lobby = lobby;
             LOBBIES_LIST.push(lobby);
+            log.info(`queue-lobby created: ${lobby.lobbyCode} for game: ${game}`);
             sendMessage(peer.socket, PROTO.QUEUE, {id: peer.lobbyId, lobbyCode: lobby.lobbyCode, isMesh: isMesh, isHost: peer.isHost});
         }
 
@@ -363,18 +384,22 @@ function handleMessage(rawMessage, peer) {
             return;
         }
         if (peer.lobbyId == id && peer.isHost) { // host is kicking themselves
-            log.info(`peer: ${peer.id} has stopped hosting: ${lobby.lobbyCode} deleting lobby`);
+            log.info(`peer: ${peer.id} has stopped hosting: ${peer.lobby.lobbyCode} deleting lobby`);
             peer.lobby.kickPeer(peer);
             peer.lobby.peerList.forEach((p) => {
                 setImmediate(() => {
-                    sendMessage(p.socket, PROTO.KICK, {id: peer.lobbyId, lobbyAlive: false});
-                    p.lobby = null;
+                    try {
+                        sendMessage(p.socket, PROTO.KICK, {id: peer.lobbyId, lobbyAlive: false});
+                        p.lobby = null;
+                    } catch (err) {
+                        log.error(err);
+                    }
                 });
             });
             let lobby = peer.lobby;
             lobby.peerList = [];
             peer.lobby = null;
-            LOBBIES_LIST = LOBBIES_LIST.filter((l) => l.lobbyCode != lobby.lobbyCode);      // delete lobby
+            removeLobby(lobby);             // delete lobby
             cancelTimeout(lobby.timeoutId);
 
         } else if (peer.isHost && peer.lobbyId != id) { // host is kickig player
@@ -451,12 +476,22 @@ function handleMessage(rawMessage, peer) {
             } else {
                 let latePeer = peer.lobby.peerList.find((p) => p.lobbyId == id);
                 setTimeout(() => {
-                    sendMessage(latePeer.socket, PROTO.READY, {id: latePeer.lobbyId, peerCount: peer.lobby.peerList.length - 1, status: null});
+                    try {
+                        sendMessage(latePeer.socket, PROTO.READY, {id: latePeer.lobbyId, peerCount: peer.lobby.peerList.length - 1, status: null});
+                    } catch (err) {
+                        log.error(`unable to find peer for lobby: ${id}`);
+                        log.error(err);
+                    }
                 }, 1_000);  // slight delay to allow user to finish connecting
             }
         } else {    // if message is from non-host -> send to host
             let host = peer.lobby.peerList.find((p) => p.isHost);
-            sendMessage(host.socket, PROTO.READY, data);
+            try {
+                sendMessage(host.socket, PROTO.READY, data);
+            } catch (err) {
+                log.error(`unable to find host for lobby: ${peer.lobby.lobbyCode}`);
+                log.error(err);
+            }
         }
     
     } else if (protocol == PROTO.START) {
@@ -494,11 +529,11 @@ SERVER.on('connection', (socket) => {
     // on-connection server asks which game user has
     CUR_PEER_CNT++;
     let peer = new User(socket);
-    log.info(`peer: ${peer.id} connected to server (${CUR_PEER_CNT}/${MAX_CONNS})`)
+    log.info(`peer: ${peer.id} connected to server)`);
     sendMessage(peer.socket, PROTO.ID);
 
     socket.on('message', (rawData) => {
-        log.debug(`recieved message from (${peer.id}): ${rawData}`)
+        log.debug(`recieved message from (${peer.id}): ${rawData}`);
         try{
             setImmediate(() => {
                 handleMessage(rawData, peer);
@@ -525,7 +560,7 @@ SERVER.on('connection', (socket) => {
                     let lobby = peer.lobby;
                     peer.lobby.peerList.forEach((p) => {p.lobby = null})
                     lobby.peerList = [];
-                    LOBBIES_LIST = LOBBIES_LIST.filter((l) => {l.lobbyCode === lobby.lobbyCode});
+                    removeLobby(lobby);
                     log.info(`deleting lobby: ${lobby.lobbyCode}`);
                     lobby = null;
                     peer.lobby = null;
@@ -552,7 +587,7 @@ SERVER.on('connection', (socket) => {
                 let lobby = peer.lobby;
                 peer.lobby.peerList.forEach((p) => {p.lobby = null})
                 lobby.peerList = [];
-                LOBBIES_LIST = LOBBIES_LIST.filter((l) => {l.lobbyCode === lobby.lobbyCode});
+                removeLobby(lobby);
                 log.info(`deleting lobby: ${lobby.lobbyCode}}`);
                 lobby = null;
                 peer.lobby = null;
@@ -577,6 +612,8 @@ let pingIntervalId = setInterval(() => {
 }, PING_INTERVAL);
 
 let memIntervalId = setInterval(() => {
+    log.info(`number of active lobbies: ${LOBBIES_LIST.length}`);
+    log.info(`number of connected users: ${CUR_PEER_CNT}`);
     for (const [key,value] of Object.entries(process.memoryUsage())) {
         log.info(`Memory usage by ${key}, ${Math.floor(value/1_000)/1_000} MB`);    // log memory usage statistics
     }
