@@ -252,40 +252,40 @@ func leave_lobby() -> void:
 ## [param lobby_coe]: lobby code to join game
 func join_lobby(lobby_code: String) -> void:
 	if not websocket_connected:
-		push_error('not connected to websocket server, use: connect_to_server()')
+		push_error('not connected to websocket server, use: "connect_to_server()"')
 	assert(websocket_connected)
 	if not _is_in_lobby:
 		_send_packets(_PROTOCOL.JOIN, {"game": game_name, "lobbyCode": lobby_code.to_upper()})
 	else:
-		push_error('already in a lobby, use leave_lobby() before trying to join a new lobby')
+		push_error('already in a lobby, use: "leave_lobby()" before trying to join a new lobby')
 
 
 ## Method to initiate hosting a lobby for multiplayer
 func host_lobby(max_peers: int, is_public: bool) -> void:
 	if not websocket_connected:
-		push_error('not connected to websocket server, use: connect_to_server()')
+		push_error('not connected to websocket server, use: "connect_to_server()"')
 	assert(websocket_connected)
 	if not _is_in_lobby:
 		_send_packets(_PROTOCOL.HOST, {"game": game_name, "maxPeers": max_peers, "isMesh": use_mesh, "isPublic": is_public})
 	else:
-		push_error('already in a lobby, use leave_lobby() before trying to host a new lobby')
+		push_error('already in a lobby, use: "leave_lobby()" before trying to host a new lobby')
 
 
 ## Method to initiate joining a game queue, will only join queues with matching tags
 func join_queue(max_peers: int, tags: String) -> void:
 	if not websocket_connected:
-		push_error('not connected to websocket server, use: connect_to_server()')
+		push_error('not connected to websocket server, use: "connect_to_server():')
 	assert(websocket_connected)
 	if not _is_in_lobby:
 		_send_packets(_PROTOCOL.QUEUE, {"game": game_name, "maxPeers": max_peers, "tags": tags, "isMesh": use_mesh})
 	else:
-		push_error('already in a lobby, use leave_lobby() before trying to join a queue')
+		push_error('already in a lobby, use: "leave_lobby()" before trying to join a queue')
 
 
 ## method for getting details on all public lobbies for game -> will emit response as signal
 func view_lobbies() -> void:
 	if not websocket_connected:
-		push_error('not connected to websocket server, use: connect_to_server()')
+		push_error('not connected to websocket server, use: "connect_to_server()"')
 	assert(websocket_connected)
 	_send_packets(_PROTOCOL.VIEW, {"game": game_name})
 

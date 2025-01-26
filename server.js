@@ -529,11 +529,11 @@ SERVER.on('connection', (socket) => {
     // on-connection server asks which game user has
     CUR_PEER_CNT++;
     let peer = new User(socket);
-    log.info(`peer: ${peer.id} connected to server (${CUR_PEER_CNT}/${MAX_CONNS})`)
+    log.info(`peer: ${peer.id} connected to server)`);
     sendMessage(peer.socket, PROTO.ID);
 
     socket.on('message', (rawData) => {
-        log.debug(`recieved message from (${peer.id}): ${rawData}`)
+        log.debug(`recieved message from (${peer.id}): ${rawData}`);
         try{
             setImmediate(() => {
                 handleMessage(rawData, peer);
@@ -613,6 +613,7 @@ let pingIntervalId = setInterval(() => {
 
 let memIntervalId = setInterval(() => {
     log.info(`number of active lobbies: ${LOBBIES_LIST.length}`);
+    log.info(`number of connected users: ${CUR_PEER_CNT}`);
     for (const [key,value] of Object.entries(process.memoryUsage())) {
         log.info(`Memory usage by ${key}, ${Math.floor(value/1_000)/1_000} MB`);    // log memory usage statistics
     }
