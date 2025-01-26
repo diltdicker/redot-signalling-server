@@ -130,7 +130,6 @@ func _handle_packets(raw_message: String) -> void:
 			push_error("game_name not setup for server")
 		assert(!game_name == '')
 		_send_packets(_PROTOCOL.ID, {"game": game_name})
-		emit_signal('socket_connected')
 		
 	elif protocol == _PROTOCOL.HOST:
 		multiplayer_id = data['id']
