@@ -308,16 +308,20 @@ function handleMessage(rawMessage, peer) {
             lobby.peerList.filter((p) => p.lobbyId != peer.lobbyId).forEach((p) => {
 
                 setImmediate(() => {    // setImmediate to provide a tiny delay & not hog the I/O
-
-                   sendMessage(p.socket, PROTO.ADD, {peerId: peer.lobbyId});        // inform other peers of new user
-                   sendMessage(peer.socket, PROTO.ADD, {peerId: p.lobbyId});        // inform new user of other peers
+                    sendMessage(p.socket, PROTO.ADD, {peerId: peer.lobbyId});        // inform other peers of new user
+                    sendMessage(peer.socket, PROTO.ADD, {peerId: p.lobbyId});        // inform new user of other peers
                 });
             });
 
             if (lobby.maxPeers == lobby.peerList.length && lobby.isActive) {
+                let host = lobby.peerList.find((p) => p.isHost);
                 setTimeout(() => {
-                    let host = lobby.peerList.find((p) => p.isHost);
-                    sendMessage(host.socket, PROTO.READY, {id: null, peerCount: null, status: null});  // tell host to check if everyone is ready to start
+                    try {
+                        sendMessage(host.socket, PROTO.READY, {id: null, peerCount: null, status: null});  // tell host to check if everyone is ready to start
+                    } catch (err) {
+                        log.error(`unable to find host to send START signal for lobby: ${lobby.lobbyCode}`);
+                        log.error(err);
+                    }
                 }, 2_000);
             }
             
@@ -377,8 +381,12 @@ function handleMessage(rawMessage, peer) {
             peer.lobby.kickPeer(peer);
             peer.lobby.peerList.forEach((p) => {
                 setImmediate(() => {
-                    sendMessage(p.socket, PROTO.KICK, {id: peer.lobbyId, lobbyAlive: false});
-                    p.lobby = null;
+                    try {
+                        sendMessage(p.socket, PROTO.KICK, {id: peer.lobbyId, lobbyAlive: false});
+                        p.lobby = null;
+                    } catch (err) {
+                        log.error(err);
+                    }
                 });
             });
             let lobby = peer.lobby;
@@ -461,12 +469,22 @@ function handleMessage(rawMessage, peer) {
             } else {
                 let latePeer = peer.lobby.peerList.find((p) => p.lobbyId == id);
                 setTimeout(() => {
-                    sendMessage(latePeer.socket, PROTO.READY, {id: latePeer.lobbyId, peerCount: peer.lobby.peerList.length - 1, status: null});
+                    try {
+                        sendMessage(latePeer.socket, PROTO.READY, {id: latePeer.lobbyId, peerCount: peer.lobby.peerList.length - 1, status: null});
+                    } catch (err) {
+                        log.error(`unable to find peer for lobby: ${id}`);
+                        log.error(err);
+                    }
                 }, 1_000);  // slight delay to allow user to finish connecting
             }
         } else {    // if message is from non-host -> send to host
             let host = peer.lobby.peerList.find((p) => p.isHost);
-            sendMessage(host.socket, PROTO.READY, data);
+            try {
+                sendMessage(host.socket, PROTO.READY, data);
+            } catch (err) {
+                log.error(`unable to find host for lobby: ${peer.lobby.lobbyCode}`);
+                log.error(err);
+            }
         }
     
     } else if (protocol == PROTO.START) {
