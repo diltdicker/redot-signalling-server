@@ -15,7 +15,7 @@ private lobbies, public lobbies, and automatic queues for multiplayer.
 
 Run `server.js` on hosted platform (e.g. heroku) and note the web address.
 
-In Godot/Redot copy the `addons` folder to project directory and enable the plugin.
+In Godot/Redot, copy the `addons` folder to project directory and enable the plugin.
 Use the custom node `PeerToPeerMultiplayer` to setup your RTC connections. Url to
 hosted socket server should begin with either prefix `ws://` or `wss://` depending on how
 your hosted server is configured.
