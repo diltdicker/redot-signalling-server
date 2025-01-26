@@ -587,6 +587,7 @@ let pingIntervalId = setInterval(() => {
 }, PING_INTERVAL);
 
 let memIntervalId = setInterval(() => {
+    log.info(`active lobbies: ${LOBBIES_LIST.map(l => l.lobbyCode).join(',')}`);
     for (const [key,value] of Object.entries(process.memoryUsage())) {
         log.info(`Memory usage by ${key}, ${Math.floor(value/1_000)/1_000} MB`);    // log memory usage statistics
     }
