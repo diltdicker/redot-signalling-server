@@ -75,7 +75,7 @@ var _old_state: WebSocketPeer.State = WebSocketPeer.STATE_CLOSED
 
 func _ready() -> void:
 	multiplayer_client.connect("peer_connected", _peer_was_connected)
-	multiplayer_client.connect("peer_disconnected", _peer_was_connected)
+	multiplayer_client.connect("peer_disconnected", _peer_was_diconnected)
 
 
 func _process(_delta: float) -> void:
@@ -106,7 +106,7 @@ func end_multiplayer():
 	multiplayer.multiplayer_peer = null
 	multiplayer_client = WebRTCMultiplayerPeer.new()
 	multiplayer_client.connect("peer_connected", _peer_was_connected)
-	multiplayer_client.connect("peer_disconnected", _peer_was_connected)
+	multiplayer_client.connect("peer_disconnected", _peer_was_diconnected)
 
 
 ## manually disconnects from websocket server
