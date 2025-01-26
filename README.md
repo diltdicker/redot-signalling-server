@@ -3,7 +3,8 @@
 <img src="addons/gaming_rtc/gaming_rtc_icon.svg" alt="GamingRTC" width="150"/>
 
 WebRTC signalling server capable of setting up Peer-to-Peer network game connections for multiplayer.
-Uses a "connect and forget" approach to p2p multiplayer (users will automatically disconnect from the signalling server after their peer-to-peer game has been setup and started).
+
+Features a "connect and forget" approach to p2p multiplayer (users will automatically disconnect from the signalling server after their peer-to-peer game has been setup and started).
 
 ## Features
 
