@@ -129,7 +129,11 @@ class Lobby {
         this.lobbyTimeoutId = setTimeout(() => {
             this.peerList.forEach((p) => {
                 p.lobby = null
-                sendMessage(p.socket, PROTO.KICK, {id: host.lobbyId, lobbyAlive: false});   // server auto kicks all peers from lobby after 10 minutes
+                try {
+                    sendMessage(p.socket, PROTO.KICK, {id: p.lobbyId, lobbyAlive: false});   // server auto kicks all peers from lobby after 10 minutes
+                } catch (err) {
+                    log.error(err);
+                }
             });
             this.peerList = [];
             removeLobby(this);
@@ -155,7 +159,7 @@ class User {
      * @param {WebSocket} socket 
      */
     constructor(socket) {
-        this.id = Math.floor(Math.random() * (2147483647 - 2) - 2);
+        this.id = Math.floor(Math.random() * (2147483647 - 2) + 2);
         this.lobbyId = this.id;
         this.isHost = false;
         this.lobby = null;
@@ -271,6 +275,7 @@ function handleMessage(rawMessage, peer) {
                 peer.lobbyId = peer.id;
                 peer.lobby = lobby;
                 lobby.peerList.push(peer);
+                log.info(`peer: ${peer.id} joined lobby: ${lobby.lobbyCode}`);
                 sendMessage(peer.socket, PROTO.JOIN, {id: peer.lobbyId, isMesh: lobby.isMesh, lobbyCode: lobby.lobbyCode});         // lobby found :)
                 lobby.peerList.filter((p) => p.lobbyId != peer.lobbyId).forEach((p) => {
                     setImmediate(() => {    // setImmediate to provide a tiny delay & not hog the I/O
@@ -304,6 +309,7 @@ function handleMessage(rawMessage, peer) {
             let lobby = lobbyList[0];
             peer.lobby = lobby;
             lobby.peerList.push(peer);
+            log.info(`peer: ${peer.id} joined queue: ${lobby.lobbyCode}`);
             sendMessage(peer.socket, PROTO.QUEUE, {id: peer.lobbyId, isMesh: lobby.isMesh, lobbyCode: lobby.lobbyCode, isHost: peer.isHost});
             lobby.peerList.filter((p) => p.lobbyId != peer.lobbyId).forEach((p) => {
 
@@ -333,6 +339,7 @@ function handleMessage(rawMessage, peer) {
             lobby.peerList.push(peer);
             peer.lobby = lobby;
             LOBBIES_LIST.push(lobby);
+            log.info(`queue-lobby created: ${lobby.lobbyCode} for game: ${game}`);
             sendMessage(peer.socket, PROTO.QUEUE, {id: peer.lobbyId, lobbyCode: lobby.lobbyCode, isMesh: isMesh, isHost: peer.isHost});
         }
 
@@ -605,7 +612,7 @@ let pingIntervalId = setInterval(() => {
 }, PING_INTERVAL);
 
 let memIntervalId = setInterval(() => {
-    log.info(`active lobbies: ${LOBBIES_LIST.map(l => l.lobbyCode).join(',')}`);
+    log.info(`number of active lobbies: ${LOBBIES_LIST.length}`);
     for (const [key,value] of Object.entries(process.memoryUsage())) {
         log.info(`Memory usage by ${key}, ${Math.floor(value/1_000)/1_000} MB`);    // log memory usage statistics
     }
