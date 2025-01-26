@@ -96,6 +96,16 @@ function cancelInterval(intervalId) {
 }
 
 /**
+ * Method to remove lobby from the master list
+ * @param {Lobby} badLobby 
+ */
+function removeLobby(badLobby) {
+    const loc = LOBBIES_LIST.indexOf(badLobby);
+    if (loc != -1);
+    LOBBIES_LIST.splice(loc, 1);    // delete lobby from array in-place
+}
+
+/**
  * 
  */
 class Lobby {
@@ -122,7 +132,7 @@ class Lobby {
                 sendMessage(p.socket, PROTO.KICK, {id: host.lobbyId, lobbyAlive: false});   // server auto kicks all peers from lobby after 10 minutes
             });
             this.peerList = [];
-            LOBBIES_LIST = LOBBIES_LIST.filter((l) => {l.lobbyCode === this.lobbyCode});
+            removeLobby(this);
             log.info(`deleting idle lobby: ${this.lobbyCode}}`);
         }, 1_000 * 60 * 10);
 
@@ -374,7 +384,7 @@ function handleMessage(rawMessage, peer) {
             let lobby = peer.lobby;
             lobby.peerList = [];
             peer.lobby = null;
-            LOBBIES_LIST = LOBBIES_LIST.filter((l) => l.lobbyCode != lobby.lobbyCode);      // delete lobby
+            removeLobby(lobby);             // delete lobby
             cancelTimeout(lobby.timeoutId);
 
         } else if (peer.isHost && peer.lobbyId != id) { // host is kickig player
@@ -525,7 +535,7 @@ SERVER.on('connection', (socket) => {
                     let lobby = peer.lobby;
                     peer.lobby.peerList.forEach((p) => {p.lobby = null})
                     lobby.peerList = [];
-                    LOBBIES_LIST = LOBBIES_LIST.filter((l) => {l.lobbyCode === lobby.lobbyCode});
+                    removeLobby(lobby);
                     log.info(`deleting lobby: ${lobby.lobbyCode}`);
                     lobby = null;
                     peer.lobby = null;
@@ -552,7 +562,7 @@ SERVER.on('connection', (socket) => {
                 let lobby = peer.lobby;
                 peer.lobby.peerList.forEach((p) => {p.lobby = null})
                 lobby.peerList = [];
-                LOBBIES_LIST = LOBBIES_LIST.filter((l) => {l.lobbyCode === lobby.lobbyCode});
+                removeLobby(lobby);
                 log.info(`deleting lobby: ${lobby.lobbyCode}}`);
                 lobby = null;
                 peer.lobby = null;

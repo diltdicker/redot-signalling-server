@@ -65,6 +65,8 @@ var multiplayer_id: int = -1
 
 var _host_connection_cnt: int = 0
 
+var _is_in_lobby: bool = false
+
 var _old_state: WebSocketPeer.State = WebSocketPeer.STATE_CLOSED
 
 ## Godot High-level multiplayer API
@@ -85,6 +87,7 @@ func _process(_delta: float) -> void:
 		_handle_packets(_websocket.get_packet().get_string_from_utf8())
 	if state != _old_state and state == WebSocketPeer.STATE_CLOSED:
 		emit_signal("socket_disconnected", _websocket.get_close_code(), _websocket.get_close_reason())
+		_is_in_lobby = false
 	_old_state = state
 
 
@@ -131,6 +134,7 @@ func _handle_packets(raw_message: String) -> void:
 		
 	elif protocol == _PROTOCOL.HOST:
 		multiplayer_id = data['id']
+		_is_in_lobby = true
 		is_host = true
 		_host_connection_cnt = 0
 		if (data['isMesh']):
@@ -142,6 +146,7 @@ func _handle_packets(raw_message: String) -> void:
 		
 	elif protocol == _PROTOCOL.JOIN:
 		multiplayer_id = data['id']
+		_is_in_lobby = true
 		is_host = false
 		if (data['isMesh']):
 			multiplayer_client.create_mesh(data['id'])
@@ -152,6 +157,7 @@ func _handle_packets(raw_message: String) -> void:
 		
 	elif protocol == _PROTOCOL.QUEUE:
 		multiplayer_id = data['id']
+		_is_in_lobby = true
 		if data['isHost']:
 			is_host = true
 			_host_connection_cnt = 0
@@ -221,6 +227,7 @@ func _handle_packets(raw_message: String) -> void:
 			
 			
 	elif protocol == _PROTOCOL.START:
+		_is_in_lobby = false
 		emit_signal("game_start")
 		
 	elif protocol == _PROTOCOL.ERR:
@@ -231,13 +238,26 @@ func _handle_packets(raw_message: String) -> void:
 		push_warning("unrecognized socket server PROTOCOL: %d" % protocol)
 
 
+## Method to leave lobby, but stay connected to websocket.
+## Use before switching to a different lobby
+func leave_lobby() -> void:
+	if _is_in_lobby:
+		_send_packets(_PROTOCOL.KICK, {"id": multiplayer_id})
+		_is_in_lobby = false
+	else:
+		push_warning('not currently in lobby')
+
+
 ## Method to initiate hosting a lobby for multiplayer
 ## [param lobby_coe]: lobby code to join game
 func join_lobby(lobby_code: String) -> void:
 	if not websocket_connected:
 		push_error('not connected to websocket server, use: connect_to_server()')
 	assert(websocket_connected)
-	_send_packets(_PROTOCOL.JOIN, {"game": game_name, "lobbyCode": lobby_code.to_upper()})
+	if not _is_in_lobby:
+		_send_packets(_PROTOCOL.JOIN, {"game": game_name, "lobbyCode": lobby_code.to_upper()})
+	else:
+		push_error('already in a lobby, use leave_lobby() before trying to join a new lobby')
 
 
 ## Method to initiate hosting a lobby for multiplayer
@@ -245,7 +265,10 @@ func host_lobby(max_peers: int, is_public: bool) -> void:
 	if not websocket_connected:
 		push_error('not connected to websocket server, use: connect_to_server()')
 	assert(websocket_connected)
-	_send_packets(_PROTOCOL.HOST, {"game": game_name, "maxPeers": max_peers, "isMesh": use_mesh, "isPublic": is_public})
+	if not _is_in_lobby:
+		_send_packets(_PROTOCOL.HOST, {"game": game_name, "maxPeers": max_peers, "isMesh": use_mesh, "isPublic": is_public})
+	else:
+		push_error('already in a lobby, use leave_lobby() before trying to host a new lobby')
 
 
 ## Method to initiate joining a game queue, will only join queues with matching tags
@@ -253,7 +276,10 @@ func join_queue(max_peers: int, tags: String) -> void:
 	if not websocket_connected:
 		push_error('not connected to websocket server, use: connect_to_server()')
 	assert(websocket_connected)
-	_send_packets(_PROTOCOL.QUEUE, {"game": game_name, "maxPeers": max_peers, "tags": tags, "isMesh": use_mesh})
+	if not _is_in_lobby:
+		_send_packets(_PROTOCOL.QUEUE, {"game": game_name, "maxPeers": max_peers, "tags": tags, "isMesh": use_mesh})
+	else:
+		push_error('already in a lobby, use leave_lobby() before trying to join a queue')
 
 
 ## method for getting details on all public lobbies for game -> will emit response as signal
