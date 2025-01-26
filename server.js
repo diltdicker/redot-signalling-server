@@ -185,7 +185,7 @@ class User {
  * @returns stringified 
  */
 function sendMessage(socket, protocol, data = {}) {
-    log.info(`sending message | call: ${protocol}, data: ${JSON.stringify(data)}}`);
+    log.debug(`sending message | call: ${protocol}, data: ${JSON.stringify(data)}}`);
     socket.send(JSON.stringify({
         'call': protocol,
         'data': data
@@ -373,7 +373,7 @@ function handleMessage(rawMessage, peer) {
             return;
         }
         if (peer.lobbyId == id && peer.isHost) { // host is kicking themselves
-            log.info(`peer: ${peer.id} has stopped hosting: ${lobby.lobbyCode} deleting lobby`);
+            log.info(`peer: ${peer.id} has stopped hosting: ${peer.lobby.lobbyCode} deleting lobby`);
             peer.lobby.kickPeer(peer);
             peer.lobby.peerList.forEach((p) => {
                 setImmediate(() => {
